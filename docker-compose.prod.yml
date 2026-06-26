@@ -1,0 +1,37 @@
+version: "3.9"
+# Üretim ortamı overrides — kullanım: docker compose -f docker-compose.yml -f docker-compose.prod.yml up
+services:
+  backend:
+    restart: always
+    environment:
+      - APP_ENV=production
+    # Üretimde --reload kaldır
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2
+    # GPU desteği (NVIDIA Container Toolkit kurulu olmalı)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  frontend:
+    restart: always
+
+  postgres:
+    restart: always
+
+  redis:
+    restart: always
+
+  nginx:
+    restart: always
+
+  prometheus:
+    restart: always
+
+  grafana:
+    restart: always
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-changeme}

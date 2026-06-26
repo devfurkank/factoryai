@@ -1,0 +1,53 @@
+# ── Ortam / Gizli bilgiler ────────────────────────────────────────────────────
+.env
+*.env.*
+!.env.example
+Roadmap.md
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# ── Model ağırlıkları (büyük ikili dosyalar) ──────────────────────────────────
+*.pt
+*.onnx
+*.engine
+*.trt
+backend/models/
+
+# ── Üretilen içerik ───────────────────────────────────────────────────────────
+backend/clips/
+backend/thumbnails/
+backend/streams/
+
+# ── Node.js ───────────────────────────────────────────────────────────────────
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# ── Docker ────────────────────────────────────────────────────────────────────
+docker-compose.override.yml
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Alembic ───────────────────────────────────────────────────────────────────
+backend/alembic/versions/*.py
+!backend/alembic/versions/.gitkeep
