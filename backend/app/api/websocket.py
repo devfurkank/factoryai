@@ -11,9 +11,11 @@ async def alarm_ws(ws: WebSocket):
     await alarm_manager.connect(ws)
     try:
         while True:
-            # Ping mesajı bekle (bağlantı canlı tut)
             data = await ws.receive_text()
             if data == "ping":
                 await ws.send_text("pong")
     except WebSocketDisconnect:
+        alarm_manager.disconnect(ws)
+    except Exception as e:
+        log.warning("alarm.ws.error", error=str(e))
         alarm_manager.disconnect(ws)

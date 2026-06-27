@@ -81,14 +81,16 @@ CREATE TABLE IF NOT EXISTS daily_summaries (
 CREATE INDEX IF NOT EXISTS idx_summaries_date ON daily_summaries(summary_date DESC);
 
 -- ── Kamera Sağlık Kayıtları ───────────────────────────────────────────────────
+-- TimescaleDB hypertable: partition sütunu (recorded_at) PRIMARY KEY'e dahil edilmeli
 CREATE TABLE IF NOT EXISTS camera_health (
-    id          BIGSERIAL   PRIMARY KEY,
+    id          BIGSERIAL,
     camera_id   VARCHAR(50) NOT NULL,
     status      VARCHAR(20) NOT NULL DEFAULT 'online',  -- online | offline | degraded
     fps         FLOAT,
     latency_ms  FLOAT,
     error_msg   TEXT,
-    recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (id, recorded_at)
 );
 
 SELECT create_hypertable('camera_health', 'recorded_at', if_not_exists => TRUE);

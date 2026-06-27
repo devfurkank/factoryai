@@ -25,7 +25,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard label="Aktif Kamera" value={health?.cameras} color="text-accent" />
         <StatCard label="Bugünkü Olay" value={stats?.total ?? 0} />
-        <StatCard label="Yüksek Riskli" value={stats?.high_risk ?? 0} color="text-warn" />
+        <StatCard label="Yüksek Riskli" value={stats?.high_risk_events ?? 0} color="text-warn" />
         <StatCard label="WebSocket" value={health?.active_ws ?? 0} color="text-ok" />
       </div>
       <div className="bg-surface border border-border rounded-lg p-4">

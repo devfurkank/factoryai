@@ -14,15 +14,16 @@ class Settings(BaseSettings):
     postgres_host: str = "localhost"
     postgres_port: int = 5432
     postgres_db: str = "factory_ai"
-    postgres_user: str = "admin"
-    postgres_password: str = "changeme123"
-    database_url: str = "postgresql+asyncpg://admin:changeme123@localhost:5432/factory_ai"
+    postgres_user: str = "postgres"
+    postgres_password: str = "PsQl41."
+    database_url: str = "postgresql+asyncpg://postgres:PsQl41.@localhost:5432/factory_ai"
 
     # Redis
     redis_url: str = "redis://localhost:6379/0"
 
     # Kamera
     webcam_device_index: int = 0
+    disable_webcam: bool = False
 
     # Modeller
     models_dir: str = "/app/models"

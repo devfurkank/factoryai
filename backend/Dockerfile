@@ -23,4 +23,6 @@ RUN mkdir -p clips thumbnails streams models
 
 EXPOSE 8000
 
+# entrypoint.sh: alembic upgrade head → exec "$@"
+ENTRYPOINT ["bash", "scripts/entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

@@ -1,5 +1,9 @@
-from sqlalchemy import String, Integer, Float, Boolean, Text, DateTime, JSON
+from sqlalchemy import (
+    String, Integer, BigInteger, Float, Boolean, Text, JSON,
+    PrimaryKeyConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.dialects.postgresql import TIMESTAMP
 from datetime import datetime
 from app.database import Base
 
@@ -17,8 +21,12 @@ class Camera(Base):
     fps_limit: Mapped[int] = mapped_column(Integer, default=8)
     resolution: Mapped[str] = mapped_column(String(20), default="640x640")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), default=datetime.utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
 
 class Zone(Base):
@@ -33,19 +41,25 @@ class Zone(Base):
     allowed_classes: Mapped[list] = mapped_column(JSON, default=list)
     rules: Mapped[dict] = mapped_column(JSON, default=dict)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), default=datetime.utcnow
+    )
 
 
 class Event(Base):
     __tablename__ = "events"
+    # TimescaleDB hypertable: partition sütunu primary key'in parçası olmalı
+    __table_args__ = (PrimaryKeyConstraint("id", "started_at"),)
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    id: Mapped[str] = mapped_column(String(36))
     camera_id: Mapped[str] = mapped_column(String(50))
     event_type: Mapped[str] = mapped_column(String(100))
     severity: Mapped[str] = mapped_column(String(20))
     risk_score: Mapped[int] = mapped_column(Integer)
-    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    started_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True))
+    ended_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
     zone_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     track_ids: Mapped[list] = mapped_column(JSON, default=list)
     detected_classes: Mapped[list] = mapped_column(JSON, default=list)
@@ -53,7 +67,9 @@ class Event(Base):
     thumbnail_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     metadata_: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
     status: Mapped[str] = mapped_column(String(20), default="ACTIVE")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), default=datetime.utcnow
+    )
 
 
 class DailySummary(Base):
@@ -66,4 +82,20 @@ class DailySummary(Base):
     high_risk_events: Mapped[int] = mapped_column(Integer, default=0)
     event_breakdown: Mapped[dict] = mapped_column(JSON, default=dict)
     summary_text: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), default=datetime.utcnow
+    )
+
+
+class CameraHealth(Base):
+    __tablename__ = "camera_health"
+    # TimescaleDB hypertable: recorded_at primary key'in parçası olmalı
+    __table_args__ = (PrimaryKeyConstraint("id", "recorded_at"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, autoincrement=True)
+    camera_id: Mapped[str] = mapped_column(String(50))
+    status: Mapped[str] = mapped_column(String(20), default="online")
+    fps: Mapped[float | None] = mapped_column(Float, nullable=True)
+    latency_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    error_msg: Mapped[str | None] = mapped_column(Text, nullable=True)
+    recorded_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True))

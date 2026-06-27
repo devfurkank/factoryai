@@ -7,7 +7,6 @@ from __future__ import annotations
 import asyncio
 import structlog
 from typing import List, Tuple
-import numpy as np
 
 log = structlog.get_logger()
 

@@ -99,7 +99,8 @@ camera_manager = CameraManager()
 
 
 def get_default_cameras() -> List[CameraConfig]:
-    """Faz 0: Laptop webcam'ini varsayılan kamera olarak döndürür."""
+    """Faz 0: Laptop webcam'ini varsayılan kamera olarak döndürür.
+    DISABLE_WEBCAM=true ise (Docker) kamera pasif kalır."""
     from app.camera.schemas import SourceType, CameraProfile
     return [
         CameraConfig(
@@ -110,5 +111,6 @@ def get_default_cameras() -> List[CameraConfig]:
             location="Geliştirme Ortamı",
             profile=CameraProfile(models=["general", "pose"], detection_fps=8),
             fps_limit=8,
+            is_active=not settings.disable_webcam,
         )
     ]

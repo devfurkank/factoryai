@@ -1,15 +1,34 @@
+import asyncio
 import structlog
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.config import settings
+from app.database import engine, AsyncSessionLocal, Base
 from app.camera.manager import camera_manager, get_default_cameras
 from app.detection.engine import detection_engine
+from app.alarm.manager import alarm_manager
+from app.redis_client import check_redis_health, close_redis
+from app.db.crud import upsert_camera
 from app.api import cameras, events, websocket
 
 log = structlog.get_logger()
+
+
+async def _fps_logger():
+    """Her 30 saniyede kamera FPS değerlerini terminale yazar."""
+    while True:
+        await asyncio.sleep(30)
+        for status in camera_manager.get_all_statuses():
+            log.info(
+                "camera.fps_report",
+                camera_id=status.camera_id,
+                fps=status.fps,
+                connected=status.is_connected,
+            )
 
 
 @asynccontextmanager
@@ -17,15 +36,35 @@ async def lifespan(app: FastAPI):
     # ── Başlangıç ──────────────────────────────────────────────────────────────
     log.info("app.startup", env=settings.app_env)
 
-    # Varsayılan kameraları kaydet (Faz 0: laptop webcam)
-    camera_manager.register_all(get_default_cameras())
+    # 1) DB: Tabloları oluştur (yoksa) — Docker'da Alembic, geliştirmede create_all
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        log.info("app.db.tables_ready")
+    except Exception as e:
+        log.warning("app.db.init_failed", error=str(e))
 
-    # Kamera akışlarını başlat
-    import asyncio
+    # 2) Redis bağlantısını doğrula
+    redis_ok = await check_redis_health()
+    log.info("app.redis.health", ok=redis_ok)
+
+    # 3) Varsayılan kameraları belleğe kaydet
+    default_cameras = get_default_cameras()
+    camera_manager.register_all(default_cameras)
+
+    # 4) Kameraları DB'ye senkronize et
+    try:
+        async with AsyncSessionLocal() as db:
+            for cam in default_cameras:
+                await upsert_camera(db, cam)
+        log.info("app.cameras.synced_to_db", count=len(default_cameras))
+    except Exception as e:
+        log.warning("app.cameras.db_sync_failed", error=str(e))
+
+    # 5) Arkaplan görevleri
     asyncio.create_task(camera_manager.start_all())
-
-    # Detection engine (şu an Faz 0 iskeleti)
     asyncio.create_task(detection_engine.start(camera_manager.frame_queue))
+    asyncio.create_task(_fps_logger())
 
     yield
 
@@ -33,12 +72,13 @@ async def lifespan(app: FastAPI):
     log.info("app.shutdown")
     detection_engine.stop()
     await camera_manager.stop_all()
+    await close_redis()
 
 
 app = FastAPI(
     title="Fabrika Güvenlik Kameraları — AI Platform",
     description="Modüler fabrika güvenlik kamera analizi platformu",
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -62,9 +102,27 @@ app.include_router(websocket.router)
 
 @app.get("/health", tags=["system"])
 async def health():
+    # DB sağlık kontrolü
+    db_ok = False
+    try:
+        async with AsyncSessionLocal() as db:
+            await db.execute(text("SELECT 1"))
+            db_ok = True
+    except Exception:
+        pass
+
+    # Redis sağlık kontrolü
+    redis_ok = await check_redis_health()
+
+    overall = "ok" if db_ok else "degraded"
     return {
-        "status": "ok",
+        "status": overall,
+        "version": "0.2.0",
         "env": settings.app_env,
         "cameras": len(camera_manager.list_cameras()),
-        "active_ws": 0,  # Faz 5'te alarm_manager.connection_count
+        "active_ws": alarm_manager.connection_count,
+        "services": {
+            "database": "ok" if db_ok else "error",
+            "redis": "ok" if redis_ok else "degraded",
+        },
     }

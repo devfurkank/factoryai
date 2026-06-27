@@ -6,8 +6,9 @@ services:
       dockerfile: Dockerfile
     env_file: .env
     environment:
-      - POSTGRES_HOST=postgres
-      - REDIS_HOST=redis
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-changeme123}@postgres:5432/${POSTGRES_DB:-factory_ai}
+      - REDIS_URL=redis://redis:6379/0
+      - DISABLE_WEBCAM=true
     volumes:
       - ./backend:/app
       - ./backend/clips:/app/clips
@@ -47,7 +48,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme123}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      # schema.sql kaldırıldı: Alembic (backend entrypoint) migrasyonları yönetir
     ports:
       - "5432:5432"
     healthcheck:

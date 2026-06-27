@@ -36,7 +36,7 @@ export default function App() {
             </button>
           ))}
         </nav>
-        <span className="ml-auto text-xs text-slate-500">MVP v0.1 — Faz 0</span>
+        <span className="ml-auto text-xs text-slate-500">MVP v0.2 — Faz 1</span>
       </header>
 
       {/* ── Ana Alan ───────────────────────────────────────────────────────── */}

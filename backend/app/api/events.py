@@ -23,7 +23,7 @@ async def list_events(
 @router.get("/stats/daily")
 async def daily_stats(target_date: Optional[date] = None):
     # TODO Faz 4: TimescaleDB aggregation
-    return {"date": str(target_date or date.today()), "total": 0, "by_type": {}}
+    return {"date": str(target_date or date.today()), "total": 0, "by_type": {}, "high_risk_events": 0}
 
 
 @router.get("/{event_id}")
