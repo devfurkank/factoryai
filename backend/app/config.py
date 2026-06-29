@@ -25,14 +25,14 @@ class Settings(BaseSettings):
     webcam_device_index: int = 0
     disable_webcam: bool = False
 
-    # Modeller
+    # Modeller — Docker'da /app/models, yerel geliştirmede backend/models olarak ayarlayın
     models_dir: str = "/app/models"
     detection_confidence: float = 0.4
     detection_batch_size: int = 4
-    yolo_general_model: str = "yolov8m.pt"
+    yolo_general_model: str = "yolov8x.pt"
     yolo_pose_model: str = "yolov8m-pose.pt"
-    yolo_ppe_model: str = "yolov8m-ppe.pt"
-    yolo_fire_model: str = "yolov8m-fire.pt"
+    yolo_ppe_model: str = "last_hardhat_200_epochs.pt"
+    yolo_fire_model: str = "fire_detection.pt"
 
     # Frame işleme
     frame_skip: int = 3

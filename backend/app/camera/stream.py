@@ -88,7 +88,7 @@ class CameraStream:
         frame_idx = 0
         fps_counter = 0
         fps_window_start = time.time()
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
 
         while self._running and cap.isOpened():
             # cap.read() bloklayıcı çağrısını thread pool'a taşı

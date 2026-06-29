@@ -13,7 +13,7 @@ from app.detection.engine import detection_engine
 from app.alarm.manager import alarm_manager
 from app.redis_client import check_redis_health, close_redis
 from app.db.crud import upsert_camera
-from app.api import cameras, events, websocket
+from app.api import cameras, events, websocket, detection
 
 log = structlog.get_logger()
 
@@ -29,6 +29,36 @@ async def _fps_logger():
                 fps=status.fps,
                 connected=status.is_connected,
             )
+
+
+async def _detection_result_consumer():
+    """
+    Detection result_queue'dan sonuçları tüketir ve loglar.
+    Faz 3'te Tracking Engine buraya bağlanacak.
+    Faz 4'te Event Engine tetiklenecek.
+    """
+    from app.detection.engine import detection_engine
+    while True:
+        try:
+            result = await asyncio.wait_for(
+                detection_engine.result_queue.get(), timeout=2.0
+            )
+            summary = result.summary()
+            # Yalnızca anlamlı tespitler loglanır
+            if summary["persons"] > 0 or summary["fire"] or summary["fall"]:
+                log.debug(
+                    "detection.result",
+                    **summary,
+                )
+            # Yangın/düşme varsa warning seviyesinde logla
+            if summary["fire"] or summary["smoke"]:
+                log.warning("detection.alert.fire_smoke", camera_id=summary["camera_id"])
+            if summary["fall"]:
+                log.warning("detection.alert.fall", camera_id=summary["camera_id"])
+        except asyncio.TimeoutError:
+            continue
+        except Exception as exc:
+            log.error("detection_consumer.error", error=str(exc))
 
 
 @asynccontextmanager
@@ -64,6 +94,7 @@ async def lifespan(app: FastAPI):
     # 5) Arkaplan görevleri
     asyncio.create_task(camera_manager.start_all())
     asyncio.create_task(detection_engine.start(camera_manager.frame_queue))
+    asyncio.create_task(_detection_result_consumer())
     asyncio.create_task(_fps_logger())
 
     yield
@@ -98,6 +129,7 @@ Instrumentator().instrument(app).expose(app)
 app.include_router(cameras.router)
 app.include_router(events.router)
 app.include_router(websocket.router)
+app.include_router(detection.router)
 
 
 @app.get("/health", tags=["system"])
