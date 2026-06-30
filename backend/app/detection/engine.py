@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 import time
 from concurrent.futures import ThreadPoolExecutor
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import structlog
@@ -50,6 +50,9 @@ class DetectionEngine:
         self._ppe: Optional[PPEDetector] = None
         self._fire: Optional[FireSmokeDetector] = None
         self._pose: Optional[PoseDetector] = None
+
+        # Kamera başına en son tespit sonucu (debug/snapshot endpoint'leri için)
+        self._latest_results: Dict[str, DetectionResult] = {}
 
         # Metrikler
         self._frame_count = 0
@@ -146,7 +149,11 @@ class DetectionEngine:
         # 5. Debug annotasyon (sadece LOG_LEVEL=DEBUG ise)
         if settings.log_level == "DEBUG" and _CV2_OK:
             for r in results:
-                r.annotated_frame = _annotate_frame(r)
+                r.annotated_frame = annotate_frame(r)
+
+        # Kamera başına en son sonucu sakla (snapshot/result endpoint'leri için)
+        for r in results:
+            self._latest_results[r.camera_id] = r
 
         self._frame_count += len(batch)
         self._batch_count += 1
@@ -229,6 +236,11 @@ class DetectionEngine:
     def is_ready(self) -> bool:
         return self._models_loaded
 
+    def get_latest_result(self, camera_id: str) -> Optional[DetectionResult]:
+        """Belirtilen kamera için en son işlenmiş DetectionResult'ı döndürür
+        (henüz hiç frame işlenmediyse None)."""
+        return self._latest_results.get(camera_id)
+
     def get_stats(self) -> dict:
         elapsed = time.time() - self._metrics_start
         return {
@@ -258,7 +270,7 @@ _COLORS = {
 }
 
 
-def _annotate_frame(result: DetectionResult) -> np.ndarray:
+def annotate_frame(result: DetectionResult) -> np.ndarray:
     """Debug: frame üzerine bounding box ve etiket çizer."""
     if not _CV2_OK:
         return result.frame

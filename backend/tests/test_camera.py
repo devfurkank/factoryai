@@ -1,16 +1,36 @@
 """Faz 0 — Başarı Kriteri Testi: Kamera ve yapılandırma doğrulama."""
 import pytest
 from app.camera.schemas import CameraConfig, SourceType
-from app.camera.manager import get_default_cameras, CameraManager
+from app.camera.manager import get_default_cameras, get_rtsp_cameras_from_env, CameraManager
 from app.config import settings
 
 
 def test_default_cameras_returns_webcam():
+    # NOT: get_default_cameras() yerel .env içindeki RTSP_CAM_* tanımlarını da
+    # döndürebileceğinden toplam sayı yerine webcam kaydının varlığı doğrulanır.
     cameras = get_default_cameras()
-    assert len(cameras) == 1
-    cam = cameras[0]
-    assert cam.source_type == SourceType.webcam
+    webcams = [c for c in cameras if c.source_type == SourceType.webcam]
+    assert len(webcams) == 1
+    cam = webcams[0]
+    assert cam.id == "cam_laptop_01"
     assert cam.device_index == settings.webcam_device_index
+
+
+def test_rtsp_cameras_from_env_parses_numbered_keys(monkeypatch):
+    monkeypatch.setenv("RTSP_CAM_01", "rtsp://10.0.0.5:554/stream1")
+    monkeypatch.setenv("RTSP_CAM_01_NAME", "Depo Kamerası")
+    monkeypatch.setenv("RTSP_CAM_02", "rtsp://10.0.0.6:554/stream1")
+    # Sayısal olmayan/eşleşmeyen anahtarlar yok sayılmalı
+    monkeypatch.setenv("RTSP_CAM_02_LOCATION", "Sevkiyat")
+
+    cameras = get_rtsp_cameras_from_env()
+
+    by_id = {c.id: c for c in cameras}
+    assert set(by_id) == {"cam_rtsp_01", "cam_rtsp_02"}
+    assert by_id["cam_rtsp_01"].source_type == SourceType.rtsp
+    assert by_id["cam_rtsp_01"].source_url == "rtsp://10.0.0.5:554/stream1"
+    assert by_id["cam_rtsp_01"].name == "Depo Kamerası"
+    assert by_id["cam_rtsp_02"].location == "Sevkiyat"
 
 
 def test_webcam_capture_source_is_int():

@@ -1,5 +1,8 @@
 import asyncio
+import os
+import re
 import time
+from pathlib import Path
 import structlog
 from typing import Dict, List, Optional
 from app.camera.schemas import CameraConfig, CameraStatus
@@ -21,11 +24,18 @@ class CameraManager:
         self._tasks: Dict[str, asyncio.Task] = {}
         # frame_queue: downstream modüller bu kuyruğu dinler
         self.frame_queue: asyncio.Queue = asyncio.Queue(maxsize=settings.frame_queue_size)
+        # start_all() çağrıldıktan sonra True olur; sonradan register() edilen
+        # kameraların stream'inin otomatik başlatılması için kullanılır.
+        self._started = False
 
     # ── Kamera Kayıt ───────────────────────────────────────────────────────────
     def register(self, config: CameraConfig):
         self._cameras[config.id] = config
         log.info("camera.registered", camera_id=config.id, name=config.display_name)
+        # Manager zaten çalışıyorsa (uygulama açıldıktan sonra kamera eklendi/
+        # güncellendiyse) stream'i hemen başlat/yeniden başlat.
+        if self._started:
+            asyncio.create_task(self._apply_camera_state(config.id))
 
     def register_all(self, configs: List[CameraConfig]):
         for cfg in configs:
@@ -33,9 +43,31 @@ class CameraManager:
 
     # ── Başlatma / Durdurma ────────────────────────────────────────────────────
     async def start_all(self):
+        self._started = True
         for camera_id, config in self._cameras.items():
             if config.is_active:
                 await self._start_camera(camera_id)
+
+    async def _apply_camera_state(self, camera_id: str):
+        """Çalışan bir manager'a kamera eklendiğinde/güncellendiğinde mevcut
+        stream'i durdurup güncel config ile yeniden başlatır (veya pasifse durdurur)."""
+        config = self._cameras.get(camera_id)
+        if not config:
+            return
+
+        existing_stream = self._streams.pop(camera_id, None)
+        existing_task = self._tasks.pop(camera_id, None)
+        if existing_stream:
+            existing_stream.stop()
+        if existing_task:
+            existing_task.cancel()
+            try:
+                await existing_task
+            except asyncio.CancelledError:
+                pass
+
+        if config.is_active:
+            await self._start_camera(camera_id)
 
     async def _start_camera(self, camera_id: str):
         config = self._cameras[camera_id]
@@ -98,11 +130,61 @@ class CameraManager:
 camera_manager = CameraManager()
 
 
-def get_default_cameras() -> List[CameraConfig]:
-    """Faz 0: Laptop webcam'ini varsayılan kamera olarak döndürür.
-    DISABLE_WEBCAM=true ise (Docker) kamera pasif kalır."""
+_RTSP_ENV_PATTERN = re.compile(r"^RTSP_CAM_(\d+)$")
+# backend/app/camera/manager.py -> backend/.env
+_ENV_FILE = Path(__file__).resolve().parent.parent.parent / ".env"
+
+
+def _load_candidate_env_values() -> Dict[str, str]:
+    """RTSP_CAM_* gibi pydantic Settings'te tanımlı olmayan değişkenlere erişmek
+    için `.env` dosyasını ayrıca okur. pydantic-settings, `.env` içeriğini
+    yalnızca kendi modelinin alanlarına aktarır; `os.environ`'a yazmaz — bu
+    yüzden tanımsız anahtarlar `os.environ` taramasıyla asla bulunamaz.
+    Gerçek ortam değişkenleri (Docker -e, CI vb.) `.env` dosyasını ezer."""
+    values: Dict[str, str] = {}
+    if _ENV_FILE.exists():
+        try:
+            from dotenv import dotenv_values
+            values.update({k: v for k, v in dotenv_values(_ENV_FILE).items() if v})
+        except Exception as e:
+            log.warning("camera.env_file.read_failed", path=str(_ENV_FILE), error=str(e))
+    values.update(os.environ)
+    return values
+
+
+def get_rtsp_cameras_from_env() -> List[CameraConfig]:
+    """`RTSP_CAM_<N>=rtsp://...` şeklindeki ortam değişkenlerinden RTSP kamera
+    tanımları üretir. Opsiyonel: `RTSP_CAM_<N>_NAME`, `RTSP_CAM_<N>_LOCATION`."""
     from app.camera.schemas import SourceType, CameraProfile
-    return [
+
+    env_values = _load_candidate_env_values()
+    cameras: List[CameraConfig] = []
+    for key, value in sorted(env_values.items()):
+        match = _RTSP_ENV_PATTERN.match(key)
+        if not match or not value.strip():
+            continue
+        suffix = match.group(1)
+        name = env_values.get(f"RTSP_CAM_{suffix}_NAME", f"RTSP Kamera {suffix}")
+        location = env_values.get(f"RTSP_CAM_{suffix}_LOCATION", "")
+        cameras.append(
+            CameraConfig(
+                id=f"cam_rtsp_{suffix}",
+                name=name,
+                source_type=SourceType.rtsp,
+                source_url=value.strip(),
+                location=location,
+                profile=CameraProfile(models=["general", "pose"], detection_fps=8),
+                fps_limit=8,
+            )
+        )
+    return cameras
+
+
+def get_default_cameras() -> List[CameraConfig]:
+    """Faz 0: Laptop webcam'i + ortam değişkenleriyle tanımlanan RTSP kameraları
+    döndürür. DISABLE_WEBCAM=true ise (Docker) webcam pasif kalır."""
+    from app.camera.schemas import SourceType, CameraProfile
+    cameras = [
         CameraConfig(
             id="cam_laptop_01",
             name="Laptop Dahili Kamera",
@@ -114,3 +196,5 @@ def get_default_cameras() -> List[CameraConfig]:
             is_active=not settings.disable_webcam,
         )
     ]
+    cameras.extend(get_rtsp_cameras_from_env())
+    return cameras
