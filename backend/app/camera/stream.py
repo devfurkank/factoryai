@@ -1,10 +1,11 @@
 import asyncio
+import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 import cv2
 import structlog
 from typing import Callable, Awaitable
-from app.camera.schemas import CameraConfig
+from app.camera.schemas import CameraConfig, SourceType
 
 # cap.read() blocking çağrısı için ayrı thread pool
 _executor = ThreadPoolExecutor(max_workers=8, thread_name_prefix="cam-read")
@@ -14,6 +15,12 @@ log = structlog.get_logger()
 # Yeniden bağlanma aralıkları (saniye)
 _RECONNECT_BASE = 5
 _RECONNECT_MAX = 60
+
+# RTSP acma/okuma icin FFmpeg'in 30s varsayilani yerine kullanilan timeout (ms).
+# Kamera erisilemezse hatayi hizli yakalayip yeniden baglanma dongusune erken
+# girmek icin kisaltildi.
+_RTSP_OPEN_TIMEOUT_MS = 8000
+_RTSP_READ_TIMEOUT_MS = 8000
 
 
 class CameraStream:
@@ -53,6 +60,25 @@ class CameraStream:
     def error(self) -> str | None:
         return self._error
 
+    # ── Yardımcı ───────────────────────────────────────────────────────────────
+    def _open_capture(self, source) -> cv2.VideoCapture:
+        if self.config.source_type != SourceType.rtsp:
+            return cv2.VideoCapture(source)
+
+        # RTSP varsayilan olarak UDP transport dener; Docker bridge agi ve
+        # NAT arkasindaki kameralarda UDP paketleri kayboluyor ve cap.read()
+        # FFmpeg'in 30s ic timeout'una kadar sessizce takiliyor. TCP transport
+        # zorlamak bu durumu buyuk olcude ortadan kaldirir.
+        os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp"
+        return cv2.VideoCapture(
+            source,
+            cv2.CAP_FFMPEG,
+            (
+                cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, _RTSP_OPEN_TIMEOUT_MS,
+                cv2.CAP_PROP_READ_TIMEOUT_MSEC, _RTSP_READ_TIMEOUT_MS,
+            ),
+        )
+
     # ── Ana Döngü ──────────────────────────────────────────────────────────────
     async def run(self):
         self._running = True
@@ -62,19 +88,24 @@ class CameraStream:
         log.info("camera.stream.start", camera_id=self.config.id, source=source)
 
         while self._running:
-            cap = cv2.VideoCapture(source)
+            cap = self._open_capture(source)
 
             if not cap.isOpened():
                 self._error = f"Kaynak açılamadı: {source}"
                 log.warning("camera.stream.open_failed",
                             camera_id=self.config.id, delay=reconnect_delay)
+                cap.release()
                 await asyncio.sleep(reconnect_delay)
                 reconnect_delay = min(reconnect_delay * 2, _RECONNECT_MAX)
                 continue
 
             self._error = None
             reconnect_delay = _RECONNECT_BASE
-            log.info("camera.stream.connected", camera_id=self.config.id)
+            # NOT: isOpened() RTSP/FFmpeg icin sadece handshake basarili oldugunda
+            # True doner; ilk frame henuz okunmamis olabilir. Bu yuzden
+            # "connected" eventi burada degil, _read_loop ilk frame'i basariyla
+            # okuduktan sonra loglanir (bkz. _read_loop).
+            log.debug("camera.stream.opened", camera_id=self.config.id)
 
             await self._read_loop(cap)
             cap.release()
@@ -89,6 +120,7 @@ class CameraStream:
         fps_counter = 0
         fps_window_start = time.time()
         loop = asyncio.get_running_loop()
+        first_frame = True
 
         while self._running and cap.isOpened():
             # cap.read() bloklayıcı çağrısını thread pool'a taşı
@@ -96,6 +128,10 @@ class CameraStream:
             if not ret:
                 self._error = "Frame okunamadı"
                 break
+
+            if first_frame:
+                first_frame = False
+                log.info("camera.stream.connected", camera_id=self.config.id)
 
             frame_idx += 1
             fps_counter += 1
