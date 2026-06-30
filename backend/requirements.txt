@@ -18,6 +18,11 @@ psycopg2-binary==2.9.9
 redis[hiredis]==5.0.4
 
 # ── Görüntü İşleme / AI ───────────────────────────────────────────────────────
+# NOT: torch/torchvision CUDA build'i pinlenir; pinlenmezse pip varsayılan
+# PyPI indeksinden +cpu build'i çeker ve GPU sessizce devre dışı kalır.
+--extra-index-url https://download.pytorch.org/whl/cu126
+torch==2.12.1+cu126
+torchvision==0.27.1+cu126
 opencv-python-headless==4.9.0.80
 numpy==1.26.4
 ultralytics==8.2.18

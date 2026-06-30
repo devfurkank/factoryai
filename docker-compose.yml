@@ -23,6 +23,15 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    # GPU passthrough: host'ta NVIDIA sürücü + nvidia-container-toolkit gerekir.
+    # Bu blok olmadan container içinde torch.cuda.is_available() her zaman False döner.
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     # NOT: Laptop webcam'i Docker içinden erişilemez (Windows/macOS kısıtlaması).
     # Geliştirme sırasında backend'i doğrudan çalıştır: uvicorn app.main:app --reload
     # Docker içinde webcam yerine RTSP veya sanal kamera kullan (Faz 1'de ayarlanacak).
