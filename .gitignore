@@ -4,6 +4,7 @@
 !.env.example
 Roadmap.md
 memory
+rtsp_test.py
 
 # ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/

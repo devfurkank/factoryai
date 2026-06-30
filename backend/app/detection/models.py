@@ -8,7 +8,22 @@ import os
 import structlog
 from typing import Optional
 
+import torch
+
 log = structlog.get_logger()
+
+# PyTorch 2.6 changed torch.load's default to weights_only=True, which breaks
+# loading ultralytics .pt checkpoints (pickled DetectionModel/PoseModel objects).
+# These weights are our own trusted files, so restore the pre-2.6 default.
+_original_torch_load = torch.load
+
+
+def _patched_torch_load(*args, **kwargs):
+    kwargs.setdefault("weights_only", False)
+    return _original_torch_load(*args, **kwargs)
+
+
+torch.load = _patched_torch_load
 
 try:
     from ultralytics import YOLO
