@@ -44,10 +44,15 @@ class TestDetectionResult:
         ])
         assert r.person_count == 2
 
-    def test_has_fire(self):
-        r = self._make_result(fire=[BBox(0, 0, 50, 50, 0.85, 0, "fire")])
-        assert r.has_fire is True
-        assert r.has_smoke is False
+    def test_has_fire_or_smoke(self):
+        # fire_detection.pt tek sınıflı (nc=1) — ateş/duman ayrımı yapılmıyor,
+        # herhangi bir onaylı tespit alarm sayılır.
+        r = self._make_result(fire=[BBox(0, 0, 50, 50, 0.85, 0, "1")])
+        assert r.has_fire_or_smoke is True
+
+    def test_no_fire_or_smoke_when_empty(self):
+        r = self._make_result(fire=[])
+        assert r.has_fire_or_smoke is False
 
     def test_has_ppe_violation(self):
         r = self._make_result(ppe=[BBox(0, 0, 50, 50, 0.75, 1, "no_hardhat")])

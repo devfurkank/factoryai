@@ -66,14 +66,10 @@ class DetectionResult:
     annotated_frame: Optional[np.ndarray] = None              # Debug annotation
 
     @property
-    def has_fire(self) -> bool:
-        return any("fire" in b.class_name.lower() or "yangın" in b.class_name.lower()
-                   for b in self.fire_smoke)
-
-    @property
-    def has_smoke(self) -> bool:
-        return any("smoke" in b.class_name.lower() or "duman" in b.class_name.lower()
-                   for b in self.fire_smoke)
+    def has_fire_or_smoke(self) -> bool:
+        # fire_detection.pt tek sınıflı (nc=1); ateş ile dumanı ayırt edemiyor.
+        # Bu yüzden isim eşleştirmek yerine onaylı herhangi bir tespiti alarm sayıyoruz.
+        return len(self.fire_smoke) > 0
 
     @property
     def has_fall(self) -> bool:
@@ -95,7 +91,7 @@ class DetectionResult:
             "persons": self.person_count,
             "vehicles": sum(1 for b in self.general if b.class_name == "vehicle"),
             "ppe_violations": sum(1 for b in self.ppe if "no" in b.class_name.lower()),
-            "fire": self.has_fire,
-            "smoke": self.has_smoke,
+            "fire": self.has_fire_or_smoke,
+            "smoke": self.has_fire_or_smoke,
             "fall": self.has_fall,
         }
