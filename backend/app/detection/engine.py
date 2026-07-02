@@ -160,7 +160,15 @@ class DetectionEngine:
         return results
 
     # ── Ana Döngü (async) ─────────────────────────────────────────────────────
-    async def start(self, frame_queue: asyncio.Queue):
+    async def start(self, camera_manager):
+        """
+        camera_manager.frame_ready (asyncio.Event) tetiklendiğinde
+        camera_manager.pop_latest_frames() ile kamera başına en güncel
+        frame'i alıp işler. Bilinçli olarak FIFO kuyruk KULLANMAZ: geçmiş
+        kareleri kovalamak yerine her zaman "şu an en güncel ne ise" onu
+        işler, böylece işleme hızı üretim hızının gerisinde kalsa bile
+        gecikme sınırsız büyümez (bkz. CameraManager._on_frame docstring'i).
+        """
         self._running = True
         loop = asyncio.get_running_loop()
 
@@ -169,38 +177,26 @@ class DetectionEngine:
         # Modelleri arka plan thread'inde yükle (event loop'u bloklamaz)
         await loop.run_in_executor(_inference_pool, self._load_models)
 
-        batch: List[Tuple[str, np.ndarray, float]] = []
-        last_flush = time.time()
-        batch_timeout = 0.1  # 100ms
-
         while self._running:
-            # Kuyruktan frame al
             try:
-                item = await asyncio.wait_for(frame_queue.get(), timeout=0.05)
-                batch.append(item)
+                await asyncio.wait_for(camera_manager.frame_ready.wait(), timeout=0.2)
             except asyncio.TimeoutError:
-                pass
-            except Exception as exc:
-                log.error("detection.frame_queue.error", error=str(exc))
+                continue
+
+            batch = camera_manager.pop_latest_frames()
+            if not batch:
                 continue
 
             now = time.time()
-            should_flush = (
-                len(batch) >= settings.detection_batch_size
-                or (batch and (now - last_flush) >= batch_timeout)
-            )
-
-            if should_flush and batch:
-                to_process = batch.copy()
-                batch.clear()
-                last_flush = now
-
-                # Inference'ı thread pool'da çalıştır
+            # Çok sayıda kamera aynı anda tetiklenirse tek seferde aşırı
+            # büyük bir inference çağrısı yapmamak için parçalara böl.
+            chunk_size = max(settings.detection_batch_size, 1)
+            for i in range(0, len(batch), chunk_size):
+                chunk = batch[i:i + chunk_size]
                 det_results = await loop.run_in_executor(
-                    _inference_pool, self._run_batch, to_process
+                    _inference_pool, self._run_batch, chunk
                 )
 
-                # Sonuçları result_queue'ya koy
                 for r in det_results:
                     try:
                         self.result_queue.put_nowait(r)
@@ -212,20 +208,20 @@ class DetectionEngine:
                         except Exception:
                             pass
 
-                # Periyodik metrik logu (her 60 sn)
-                if (now - self._metrics_start) >= 60:
-                    elapsed = now - self._metrics_start
-                    fps = self._frame_count / elapsed if elapsed > 0 else 0.0
-                    log.info(
-                        "detection.engine.metrics",
-                        avg_fps=round(fps, 1),
-                        total_frames=self._frame_count,
-                        total_batches=self._batch_count,
-                        result_queue_size=self.result_queue.qsize(),
-                    )
-                    self._frame_count = 0
-                    self._batch_count = 0
-                    self._metrics_start = now
+            # Periyodik metrik logu (her 60 sn)
+            if (now - self._metrics_start) >= 60:
+                elapsed = now - self._metrics_start
+                fps = self._frame_count / elapsed if elapsed > 0 else 0.0
+                log.info(
+                    "detection.engine.metrics",
+                    avg_fps=round(fps, 1),
+                    total_frames=self._frame_count,
+                    total_batches=self._batch_count,
+                    result_queue_size=self.result_queue.qsize(),
+                )
+                self._frame_count = 0
+                self._batch_count = 0
+                self._metrics_start = now
 
     def stop(self):
         self._running = False
@@ -279,7 +275,8 @@ def annotate_frame(result: DetectionResult) -> np.ndarray:
     for b in all_boxes:
         color = _COLORS.get(b.class_name, (200, 200, 200))
         _cv2.rectangle(frame, (int(b.x1), int(b.y1)), (int(b.x2), int(b.y2)), color, 2)
-        label = f"{b.class_name} {b.confidence:.2f}"
+        id_suffix = f" #{b.track_id}" if b.track_id is not None else ""
+        label = f"{b.class_name}{id_suffix} {b.confidence:.2f}"
         _cv2.putText(frame, label, (int(b.x1), int(b.y1) - 5),
                      _cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
     # Düşme durumunu çiz

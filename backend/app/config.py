@@ -36,7 +36,17 @@ class Settings(BaseSettings):
 
     # Frame işleme
     frame_skip: int = 3
-    frame_queue_size: int = 100
+
+    # Tracking — ultralytics BYTETracker adaptörü (bkz. app/tracking/bytetrack.py)
+    track_high_thresh: float = 0.5    # 1. aşama (yüksek güvenli) eşleştirme alt sınırı
+    track_low_thresh: float = 0.1     # 2. aşama (düşük güvenli) eşleştirme alt sınırı
+    track_new_thresh: float = 0.6     # Yeni track açmak için minimum güven
+    track_match_thresh: float = 0.8   # Eşleştirme kabul eşiği (ultralytics varsayılanı)
+    track_max_age: int = 3            # Bu kadar frame üst üste eşleşmezse track silinir
+
+    # Rule Engine
+    distance_alert_pixels: float = 150.0  # Forklift (vehicle)-insan yakınlık eşiği (piksel)
+    zones_cache_ttl_seconds: int = 30     # Zone tanımlarının DB'den yeniden okunma sıklığı
 
     # Video
     clips_dir: str = "/app/clips"

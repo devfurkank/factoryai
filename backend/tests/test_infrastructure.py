@@ -52,6 +52,45 @@ def test_row_to_config_roundtrip():
     assert isinstance(config.profile, CameraProfile)
 
 
+@pytest.mark.asyncio
+async def test_upsert_camera_updates_all_fields_on_existing_row():
+    """upsert_camera: var olan bir satırı günceller derken is_active dışındaki
+    alanları (name, location, fps_limit, profile, ...) da yazmalı — yalnızca
+    is_active güncellenip diğerlerinin sessizce atlanması regresyon hatasıydı."""
+    from app.database import AsyncSessionLocal
+    from app.db.crud import upsert_camera, get_camera
+    from app.camera.schemas import CameraConfig, SourceType, CameraProfile
+
+    cam_id = "cam_test_upsert_regression"
+    async with AsyncSessionLocal() as db:
+        try:
+            original = CameraConfig(
+                id=cam_id, name="Once", source_type=SourceType.webcam,
+                device_index=0, location="Depo A", fps_limit=8,
+                profile=CameraProfile(models=["general"], detection_fps=8),
+            )
+            await upsert_camera(db, original)
+
+            updated = CameraConfig(
+                id=cam_id, name="Sonra", source_type=SourceType.webcam,
+                device_index=1, location="Depo B", fps_limit=15,
+                profile=CameraProfile(models=["general", "pose"], detection_fps=15),
+            )
+            await upsert_camera(db, updated)
+
+            row = await get_camera(db, cam_id)
+            assert row.name == "Sonra"
+            assert row.device_index == 1
+            assert row.location == "Depo B"
+            assert row.fps_limit == 15
+            assert row.profile.get("detection_fps") == 15
+        finally:
+            row = await get_camera(db, cam_id)
+            if row is not None:
+                await db.delete(row)
+                await db.commit()
+
+
 # ── API Health ───────────────────────────────────────────────────────────────
 
 

@@ -84,11 +84,19 @@ class CameraStream:
         self._running = True
         reconnect_delay = _RECONNECT_BASE
         source = self.config.get_capture_source()
+        loop = asyncio.get_running_loop()
 
         log.info("camera.stream.start", camera_id=self.config.id, source=source)
 
         while self._running:
-            cap = self._open_capture(source)
+            # cv2.VideoCapture(...) RTSP için erişilemeyen bir kaynakta
+            # CAP_PROP_OPEN_TIMEOUT_MSEC'e kadar (8sn) SENKRON olarak
+            # bloke olabiliyor. Thread pool'a taşınmazsa bu, paylaşılan
+            # asyncio event loop'unu (dolayısıyla tüm HTTP sunucusunu ve
+            # diğer tüm kameraların işlenmesini) o süre boyunca komple
+            # dondurur — kamera erişilemez durumdayken periyodik ~8sn'lik
+            # sistem geneli donmalara yol açan asıl sebep buydu.
+            cap = await loop.run_in_executor(_executor, self._open_capture, source)
 
             if not cap.isOpened():
                 self._error = f"Kaynak açılamadı: {source}"

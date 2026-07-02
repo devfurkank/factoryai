@@ -26,6 +26,12 @@ torchvision==0.27.1+cu126
 opencv-python-headless==4.9.0.80
 numpy==1.26.4
 ultralytics==8.2.18
+# lapx: ultralytics'in dahili BYTETracker'ının Macar algoritması (Hungarian
+# assignment) bağımlılığı ("lap" import adıyla kullanılır). Explicit pinlendi
+# ki ultralytics ilk tracker çağrısında runtime'da sessizce pip install
+# denemesin. cp311 için win_amd64 + manylinux (Docker) prebuilt wheel'leri
+# mevcut — derleyici (gcc/MSVC) gerekmiyor.
+lapx==0.9.4
 shapely==2.0.4
 Pillow==10.3.0
 

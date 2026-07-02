@@ -3,6 +3,7 @@ import structlog
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from sqlalchemy import text
 from prometheus_fastapi_instrumentator import Instrumentator
 
@@ -10,10 +11,13 @@ from app.config import settings
 from app.database import engine, AsyncSessionLocal, Base
 from app.camera.manager import camera_manager, get_default_cameras
 from app.detection.engine import detection_engine
+from app.tracking.engine import tracking_engine
+from app.rules.engine import rule_engine
 from app.alarm.manager import alarm_manager
 from app.redis_client import check_redis_health, close_redis
+from app.db import crud
 from app.db.crud import upsert_camera
-from app.api import cameras, events, websocket, detection
+from app.api import cameras, events, websocket, detection, zones, tracking, rules
 
 log = structlog.get_logger()
 
@@ -33,9 +37,9 @@ async def _fps_logger():
 
 async def _detection_result_consumer():
     """
-    Detection result_queue'dan sonuçları tüketir ve loglar.
-    Faz 3'te Tracking Engine buraya bağlanacak.
-    Faz 4'te Event Engine tetiklenecek.
+    Detection result_queue'dan sonuçları tüketir; Tracking Engine ve Rule
+    Engine'i besler.
+    Faz 4'te Event Engine bu ihlallerden DB olayı üretecek.
     """
     from app.detection.engine import detection_engine
     while True:
@@ -55,10 +59,25 @@ async def _detection_result_consumer():
                 log.warning("detection.alert.fire_smoke", camera_id=summary["camera_id"])
             if summary["fall"]:
                 log.warning("detection.alert.fall", camera_id=summary["camera_id"])
+
+            # Faz 3: genel tespitleri (person/vehicle) takip et, sonra kural motoruna gönder
+            tracked_objects = tracking_engine.update(result.camera_id, result.general)
+            rule_engine.evaluate(result.camera_id, tracked_objects)
         except asyncio.TimeoutError:
             continue
         except Exception as exc:
             log.error("detection_consumer.error", error=str(exc))
+
+
+async def _zones_refresher():
+    """Zone tanımlarını periyodik olarak DB'den okuyup RuleEngine önbelleğini günceller."""
+    while True:
+        try:
+            async with AsyncSessionLocal() as db:
+                rule_engine.set_zones(await crud.get_zones_by_camera(db))
+        except Exception as exc:
+            log.warning("app.zones.refresh_failed", error=str(exc))
+        await asyncio.sleep(settings.zones_cache_ttl_seconds)
 
 
 @asynccontextmanager
@@ -93,9 +112,10 @@ async def lifespan(app: FastAPI):
 
     # 5) Arkaplan görevleri
     asyncio.create_task(camera_manager.start_all())
-    asyncio.create_task(detection_engine.start(camera_manager.frame_queue))
+    asyncio.create_task(detection_engine.start(camera_manager))
     asyncio.create_task(_detection_result_consumer())
     asyncio.create_task(_fps_logger())
+    asyncio.create_task(_zones_refresher())
 
     yield
 
@@ -130,6 +150,40 @@ app.include_router(cameras.router)
 app.include_router(events.router)
 app.include_router(websocket.router)
 app.include_router(detection.router)
+app.include_router(zones.router)
+app.include_router(tracking.router)
+app.include_router(rules.router)
+
+
+@app.get("/view", response_class=HTMLResponse, tags=["system"])
+async def cameras_view_index():
+    """React paneli (Faz 6) hazır olana kadar hızlı görsel doğrulama için:
+    tüm kameraları ve canlı tespit akışı linklerini listeler."""
+    cameras = camera_manager.list_cameras()
+    if cameras:
+        items = "".join(
+            f'<li><a href="/api/detection/{c.id}/view">{c.name} ({c.id})</a></li>'
+            for c in cameras
+        )
+    else:
+        items = "<li>Kayıtlı kamera yok</li>"
+    return f"""<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Kameralar — Canlı İzleme</title>
+<style>
+  body {{ background:#111; color:#eee; font-family:sans-serif; padding:24px; }}
+  a {{ color:#4fc3f7; text-decoration:none; }}
+  a:hover {{ text-decoration:underline; }}
+  li {{ margin:8px 0; font-size:1.1em; }}
+</style>
+</head>
+<body>
+  <h2>Kameralar</h2>
+  <ul>{items}</ul>
+</body>
+</html>"""
 
 
 @app.get("/health", tags=["system"])

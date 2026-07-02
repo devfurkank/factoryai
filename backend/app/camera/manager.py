@@ -22,8 +22,18 @@ class CameraManager:
         self._cameras: Dict[str, CameraConfig] = {}
         self._streams: Dict[str, CameraStream] = {}
         self._tasks: Dict[str, asyncio.Task] = {}
-        # frame_queue: downstream modüller bu kuyruğu dinler
-        self.frame_queue: asyncio.Queue = asyncio.Queue(maxsize=settings.frame_queue_size)
+        # Kamera başına yalnızca EN GÜNCEL frame tutulur (FIFO kuyruk değil).
+        # Neden: sabit boyutlu bir FIFO kuyruk (eski tasarım: maxsize=100)
+        # işleme hızı üretim hızına yetişemediğinde geri dönüşü olmayan bir
+        # birikim oluşturuyordu — istikrar durumunda dequeue edilen frame'in
+        # yaşı tam olarak (kuyruk_boyutu / üretim_fps) kadar oluyordu
+        # (100 kare / ~10fps ≈ 10 saniye gecikme — canlı izlemede fark edilir
+        # hale geldi). En-güncel-frame modeli bu birikimi yapısal olarak
+        # imkansız kılar: yeni frame her zaman öncekinin üzerine yazar,
+        # işleme yetişemese bile gecikme büyümez, en fazla bir işleme
+        # döngüsü kadar kalır.
+        self._latest_frames: Dict[str, tuple] = {}  # camera_id -> (frame, timestamp)
+        self.frame_ready = asyncio.Event()
         # start_all() çağrıldıktan sonra True olur; sonradan register() edilen
         # kameraların stream'inin otomatik başlatılması için kullanılır.
         self._started = False
@@ -93,15 +103,20 @@ class CameraManager:
 
     # ── Frame Callback ─────────────────────────────────────────────────────────
     async def _on_frame(self, camera_id: str, frame, timestamp: float):
-        try:
-            self.frame_queue.put_nowait((camera_id, frame, timestamp))
-        except asyncio.QueueFull:
-            # Kuyruğu taşırmak yerine eski frame'i at
-            try:
-                self.frame_queue.get_nowait()
-                self.frame_queue.put_nowait((camera_id, frame, timestamp))
-            except Exception:
-                pass
+        # Önceki (henüz işlenmemiş olsa bile) frame'in üzerine yazar —
+        # bilinçli olarak: canlı izlemede geçmiş kareleri kovalamak yerine
+        # her zaman en güncel kareyi işlemek tercih edilir.
+        self._latest_frames[camera_id] = (frame, timestamp)
+        self.frame_ready.set()
+
+    def pop_latest_frames(self) -> List[tuple]:
+        """O ana kadar biriken (kamera başına en fazla 1 tane) en güncel
+        frame'leri döndürür ve bekleyen listeyi temizler. DetectionEngine
+        tarafından her işleme döngüsünde çağrılır."""
+        items = [(cid, frame, ts) for cid, (frame, ts) in self._latest_frames.items()]
+        self._latest_frames.clear()
+        self.frame_ready.clear()
+        return items
 
     # ── Durum Sorgulama ────────────────────────────────────────────────────────
     def get_status(self, camera_id: str) -> Optional[CameraStatus]:
