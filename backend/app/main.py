@@ -23,7 +23,9 @@ from app.video.hls import hls_manager
 from app.redis_client import check_redis_health, close_redis
 from app.db import crud
 from app.db.crud import upsert_camera
-from app.api import cameras, events, websocket, detection, zones, tracking, rules, streams
+from app.llm.gemma import gemma
+from app.llm.summary import generate_daily_summary
+from app.api import cameras, events, websocket, detection, zones, tracking, rules, streams, summary
 
 log = structlog.get_logger()
 
@@ -84,6 +86,32 @@ async def _zones_refresher():
         await asyncio.sleep(settings.zones_cache_ttl_seconds)
 
 
+async def _daily_summary_scheduler():
+    """Her gece SUMMARY_HOUR:SUMMARY_MINUTE'da (varsayılan 23:55, sunucu yerel
+    saati) günün özetini üretir — Faz 6 (Roadmap Gün 22–23 cron görevi)."""
+    from datetime import datetime, timedelta, timezone
+
+    while True:
+        now = datetime.now()
+        target = now.replace(
+            hour=settings.summary_hour, minute=settings.summary_minute,
+            second=0, microsecond=0,
+        )
+        if target <= now:
+            target += timedelta(days=1)
+        await asyncio.sleep((target - now).total_seconds())
+        try:
+            async with AsyncSessionLocal() as db:
+                # Olaylar UTC saklanıyor; gün sınırı da UTC gününe göre alınır
+                row = await generate_daily_summary(
+                    db, datetime.now(timezone.utc).date(), force=True
+                )
+                log.info("summary.scheduled.ok", date=row.summary_date,
+                         total=row.total_events)
+        except Exception as exc:
+            log.error("summary.scheduled.failed", error=repr(exc))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # ── Başlangıç ──────────────────────────────────────────────────────────────
@@ -122,6 +150,11 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(_zones_refresher())
     # Faz 5: RTSP kameralar için HLS canlı yayın süreçleri (FFmpeg)
     asyncio.create_task(hls_manager.start(camera_manager))
+    # Faz 6: gece günlük özet üretimi + (etkinse) Gemma model yüklemesi
+    asyncio.create_task(_daily_summary_scheduler())
+    if settings.llm_enabled:
+        # Ağır yükleme (indirme + RAM) — event loop'u bloklamadan thread'de
+        asyncio.create_task(asyncio.to_thread(gemma.load))
 
     yield
 
@@ -161,6 +194,7 @@ app.include_router(zones.router)
 app.include_router(tracking.router)
 app.include_router(rules.router)
 app.include_router(streams.router)
+app.include_router(summary.router)
 
 # HLS segmentleri: Docker'da nginx servis eder (/streams/ location); yerel
 # geliştermede (nginx yok) aynı URL'lerin çalışması için backend de servis eder.

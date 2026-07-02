@@ -127,6 +127,13 @@ class HLSStreamManager:
             "-rtsp_transport", "tcp",       # UDP paket kaybına karşı (bkz. camera/stream.py)
             "-timeout", "8000000",          # RTSP socket I/O timeout (µs) — erişilemeyen
                                             # kaynakta süresiz takılmak yerine ~8sn'de öl
+            # Düşük gecikme giriş ayarları: FFmpeg varsayılanı girişte ~5MB /
+            # birkaç saniye buffer'lar (probe + demux) — canlı izlemede bu tek
+            # başına 2-4 sn gecikme ekliyordu.
+            "-fflags", "nobuffer",
+            "-flags", "low_delay",
+            "-probesize", "500000",         # 500KB — stream analizi için yeterli
+            "-analyzeduration", "1000000",  # 1 sn
             # IP kamera/telefon kaynakları çoğunlukla düzgün FPS/timestamp
             # bildirmez; FFmpeg saçma bir kare hızı (90k tbr) algılayıp binlerce
             # kare kopyalıyor ve encoder hiç segment yazamıyordu ("MB rate >
@@ -143,7 +150,9 @@ class HLSStreamManager:
             "-f", "hls",
             "-hls_time", str(settings.hls_segment_seconds),
             "-hls_list_size", str(settings.hls_list_size),
-            "-hls_flags", "delete_segments",
+            # independent_segments: her segment kendi keyframe'iyle başlar —
+            # oynatıcı canlı uca daha agresif atlayabilir (gecikme toparlama)
+            "-hls_flags", "delete_segments+independent_segments",
             "-hls_segment_filename", segment_pattern,
             stream.playlist_path,
         ]

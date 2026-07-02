@@ -66,8 +66,11 @@ class Settings(BaseSettings):
 
     # HLS Live Stream (Faz 5 — sadece RTSP kameralar; webcam MJPEG ile izlenir)
     hls_enabled: bool = True
-    hls_segment_seconds: int = 2
-    hls_list_size: int = 3
+    # 1 sn segment = düşük gecikme (gecikme ≈ segment × liveSyncDurationCount +
+    # encode). Liste 5 segment (5 sn pencere) — delete_segments ile oynatıcının
+    # tam silinen segmenti istemesi riskine karşı tampon.
+    hls_segment_seconds: int = 1
+    hls_list_size: int = 5
     hls_fps: int = 15   # Sabit çıkış FPS — bozuk timestamp'li IP kameralarda şart
 
     # Alarm
@@ -75,9 +78,17 @@ class Settings(BaseSettings):
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
 
-    # LLM
+    # LLM (Faz 6 — Gün 22–23)
+    # LLM tamamen opsiyonel iyileştirme katmanı: false (varsayılan) iken özet ve
+    # soru-cevap şablon tabanlı çalışır, hiçbir model indirilmez/yüklenmez.
+    llm_enabled: bool = False
     gemma_model: str = "google/gemma-2b-it"
     gemma_device: str = "cpu"
+    gemma_max_new_tokens: int = 400
+
+    # Günlük özet üretim zamanı (sunucu yerel saati) — Roadmap: 23:55
+    summary_hour: int = 23
+    summary_minute: int = 55
 
     # CORS
     cors_origins: str = "http://localhost:3000,http://localhost:5173"

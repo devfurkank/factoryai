@@ -2,18 +2,35 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --color-bg: #0f172a;
-  --color-surface: #1e293b;
-  --color-border: #334155;
-  --color-accent: #3b82f6;
-  --color-danger: #ef4444;
-  --color-warn: #f59e0b;
-  --color-ok: #22c55e;
-}
+/* ── Faz 6 açık tema — 2026 yönetim paneli tasarım sistemi ─────────────────── */
 
 body {
-  background-color: var(--color-bg);
-  color: #f1f5f9;
-  font-family: 'Inter', system-ui, sans-serif;
+  @apply bg-canvas text-ink font-sans antialiased;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* İnce, açık temaya uygun kaydırma çubukları */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Recharts açık tema uyumu */
+.recharts-cartesian-grid line {
+  stroke: #eef0f4;
+}
+.recharts-text {
+  fill: #94a3b8;
+  font-size: 11px;
 }

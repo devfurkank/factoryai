@@ -5,7 +5,7 @@ from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select
 
-from app.db.models import Camera, Event, Zone
+from app.db.models import Camera, DailySummary, Event, Zone
 from app.camera.schemas import CameraConfig, SourceType, CameraProfile
 from app.events.schemas import EventCreate, EventResponse
 from app.rules.schemas import ZoneCreate
@@ -291,6 +291,72 @@ async def update_event_status(
     return row
 
 
+async def hourly_event_stats(db: AsyncSession, target_date: date) -> dict:
+    """Günün saatlik olay histogramı (UTC) — dashboard bar grafiği için.
+    24 saatin tamamı doldurulur (olay olmayan saatler 0)."""
+    day_start = datetime.combine(target_date, time.min, tzinfo=timezone.utc)
+    day_end = day_start + timedelta(days=1)
+    # extract/date_trunc timestamptz'de OTURUM saat dilimini kullanır (yerel
+    # kurulumda Europe/Istanbul) — filtreler UTC gün sınırı olduğundan sütun
+    # önce açıkça UTC'ye çevrilir, yoksa saatler/günler kayar.
+    hour_col = func.extract("hour", func.timezone("UTC", Event.started_at))
+
+    result = await db.execute(
+        select(
+            hour_col.label("hour"),
+            func.count(),
+            func.count().filter(Event.risk_score >= 70),
+        )
+        .where(Event.started_at >= day_start, Event.started_at < day_end)
+        .group_by(hour_col)
+    )
+    by_hour = {int(h): (int(total), int(high)) for h, total, high in result.all()}
+    return {
+        "date": target_date.isoformat(),
+        "hours": [
+            {
+                "hour": h,
+                "total": by_hour.get(h, (0, 0))[0],
+                "high_risk": by_hour.get(h, (0, 0))[1],
+            }
+            for h in range(24)
+        ],
+    }
+
+
+async def range_event_stats(db: AsyncSession, days: int, end_date: date) -> dict:
+    """Son N günün günlük olay sayıları (UTC) — dashboard trend grafiği için.
+    Aralıktaki her gün doldurulur (olay olmayan günler 0)."""
+    start_date = end_date - timedelta(days=days - 1)
+    range_start = datetime.combine(start_date, time.min, tzinfo=timezone.utc)
+    range_end = datetime.combine(end_date, time.min, tzinfo=timezone.utc) + timedelta(days=1)
+    # timezone("UTC", ...) şart — bkz. hourly_event_stats'taki not
+    day_col = func.date_trunc("day", func.timezone("UTC", Event.started_at))
+
+    result = await db.execute(
+        select(
+            day_col.label("day"),
+            func.count(),
+            func.count().filter(Event.risk_score >= 70),
+        )
+        .where(Event.started_at >= range_start, Event.started_at < range_end)
+        .group_by(day_col)
+    )
+    by_day = {row[0].date(): (int(row[1]), int(row[2])) for row in result.all()}
+    return {
+        "from": start_date.isoformat(),
+        "to": end_date.isoformat(),
+        "days": [
+            {
+                "date": (start_date + timedelta(days=i)).isoformat(),
+                "total": by_day.get(start_date + timedelta(days=i), (0, 0))[0],
+                "high_risk": by_day.get(start_date + timedelta(days=i), (0, 0))[1],
+            }
+            for i in range(days)
+        ],
+    }
+
+
 async def daily_event_stats(db: AsyncSession, target_date: date) -> dict:
     """Belirtilen günün (UTC) olay istatistikleri: toplam, tür/önem/kamera
     kırılımı ve yüksek riskli (risk_score >= 70) olay sayısı."""
@@ -317,3 +383,59 @@ async def daily_event_stats(db: AsyncSession, target_date: date) -> dict:
         "by_severity": await _group_counts(Event.severity),
         "by_camera": await _group_counts(Event.camera_id),
     }
+
+
+# ── Daily Summary CRUD (Faz 6 — Raporlama) ──────────────────────────────────────
+
+def _to_date(value: str | date) -> date:
+    """summary_date parametresini DATE sütunuyla uyumlu date nesnesine çevirir."""
+    return date.fromisoformat(value) if isinstance(value, str) else value
+
+
+async def get_daily_summary(
+    db: AsyncSession, summary_date: str | date, camera_id: Optional[str] = None
+) -> DailySummary | None:
+    result = await db.execute(
+        select(DailySummary).where(
+            DailySummary.summary_date == _to_date(summary_date),
+            DailySummary.camera_id == camera_id
+            if camera_id is not None
+            else DailySummary.camera_id.is_(None),
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def upsert_daily_summary(
+    db: AsyncSession,
+    *,
+    summary_date: str | date,
+    total_events: int,
+    high_risk_events: int,
+    event_breakdown: dict,
+    summary_text: str,
+    camera_id: Optional[str] = None,
+) -> DailySummary:
+    row = await get_daily_summary(db, summary_date, camera_id)
+    if row is None:
+        row = DailySummary(summary_date=_to_date(summary_date), camera_id=camera_id)
+        db.add(row)
+    row.total_events = total_events
+    row.high_risk_events = high_risk_events
+    row.event_breakdown = event_breakdown
+    row.summary_text = summary_text
+    row.created_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+async def list_daily_summaries(db: AsyncSession, limit: int = 30) -> list[DailySummary]:
+    """Genel (kamera bazlı olmayan) özetler, yeniden eskiye."""
+    result = await db.execute(
+        select(DailySummary)
+        .where(DailySummary.camera_id.is_(None))
+        .order_by(DailySummary.summary_date.desc())
+        .limit(limit)
+    )
+    return list(result.scalars().all())

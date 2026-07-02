@@ -6,6 +6,7 @@ export function useEvents(filters = {}) {
     queryKey: ["events", filters],
     queryFn: () => api.events.list(filters),
     refetchInterval: 10000,
+    keepPreviousData: true,
   });
 }
 

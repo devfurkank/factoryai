@@ -86,6 +86,24 @@ async def daily_stats(
     return await crud.daily_event_stats(db, target_date or datetime.now(timezone.utc).date())
 
 
+@router.get("/stats/hourly")
+async def hourly_stats(
+    target_date: Optional[date] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Günün saatlik olay histogramı — dashboard grafiği (Faz 6)."""
+    return await crud.hourly_event_stats(db, target_date or datetime.now(timezone.utc).date())
+
+
+@router.get("/stats/range")
+async def range_stats(
+    days: int = Query(default=7, ge=1, le=90),
+    db: AsyncSession = Depends(get_db),
+):
+    """Son N günün günlük olay sayıları — dashboard trend grafiği (Faz 6)."""
+    return await crud.range_event_stats(db, days, datetime.now(timezone.utc).date())
+
+
 @router.get("/{event_id}", response_model=EventResponse)
 async def get_event(event_id: str, db: AsyncSession = Depends(get_db)):
     row = await crud.get_event(db, event_id)

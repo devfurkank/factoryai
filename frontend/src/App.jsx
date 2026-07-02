@@ -1,54 +1,23 @@
-import { useState } from "react";
-import CameraGrid from "./components/CameraGrid";
-import AlarmPanel from "./components/AlarmPanel";
-import Dashboard from "./components/Dashboard";
-import EventList from "./components/EventList";
-import clsx from "clsx";
-
-const TABS = [
-  { id: "live", label: "Canlı İzleme" },
-  { id: "dashboard", label: "Dashboard" },
-  { id: "events", label: "Olaylar" },
-];
+import { Routes, Route } from "react-router-dom";
+import AppLayout from "./components/layout/AppLayout";
+import DashboardPage from "./pages/DashboardPage";
+import LivePage from "./pages/LivePage";
+import EventsPage from "./pages/EventsPage";
+import ReportsPage from "./pages/ReportsPage";
+import AssistantPage from "./pages/AssistantPage";
+import CamerasPage from "./pages/CamerasPage";
 
 export default function App() {
-  const [tab, setTab] = useState("live");
-
   return (
-    <div className="flex flex-col h-screen bg-[#0f172a] text-slate-100">
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <header className="flex items-center gap-4 px-6 py-3 border-b border-[#334155] bg-[#1e293b]">
-        <span className="text-sm font-bold tracking-wide text-blue-400">
-          🏭 FABRİKA AI
-        </span>
-        <nav className="flex gap-1 ml-4">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={clsx(
-                "px-3 py-1.5 text-xs rounded transition-colors",
-                tab === t.id
-                  ? "bg-blue-600 text-white"
-                  : "text-slate-400 hover:text-white hover:bg-slate-700"
-              )}
-            >
-              {t.label}
-            </button>
-          ))}
-        </nav>
-        <span className="ml-auto text-xs text-slate-500">MVP v0.3 — Faz 5</span>
-      </header>
-
-      {/* ── Ana Alan ───────────────────────────────────────────────────────── */}
-      <div className="flex flex-1 overflow-hidden">
-        <main className="flex-1 overflow-y-auto p-6">
-          {tab === "live" && <CameraGrid />}
-          {tab === "dashboard" && <Dashboard />}
-          {tab === "events" && <EventList />}
-        </main>
-        <AlarmPanel />
-      </div>
-    </div>
+    <Routes>
+      <Route element={<AppLayout />}>
+        <Route path="/" element={<DashboardPage />} />
+        <Route path="/live" element={<LivePage />} />
+        <Route path="/events" element={<EventsPage />} />
+        <Route path="/reports" element={<ReportsPage />} />
+        <Route path="/assistant" element={<AssistantPage />} />
+        <Route path="/cameras" element={<CamerasPage />} />
+      </Route>
+    </Routes>
   );
 }

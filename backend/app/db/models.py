@@ -1,10 +1,10 @@
 from sqlalchemy import (
-    String, Integer, BigInteger, Float, Boolean, Text, JSON, Uuid,
+    String, Integer, BigInteger, Float, Boolean, Text, JSON, Uuid, Date,
     PrimaryKeyConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import TIMESTAMP
-from datetime import datetime
+from datetime import date, datetime
 from app.database import Base
 
 
@@ -80,7 +80,10 @@ class DailySummary(Base):
     __tablename__ = "daily_summaries"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    summary_date: Mapped[str] = mapped_column(String(10))
+    # DB'deki sütun DATE (migration 001) — String kullanılırsa asyncpg
+    # "operator does not exist: date = character varying" hatası verir
+    # (Event.id UUID/VARCHAR dersiyle aynı sınıf sorun).
+    summary_date: Mapped[date] = mapped_column(Date)
     camera_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     total_events: Mapped[int] = mapped_column(Integer, default=0)
     high_risk_events: Mapped[int] = mapped_column(Integer, default=0)
