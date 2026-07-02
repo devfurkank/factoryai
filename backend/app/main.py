@@ -13,6 +13,7 @@ from app.camera.manager import camera_manager, get_default_cameras
 from app.detection.engine import detection_engine
 from app.tracking.engine import tracking_engine
 from app.rules.engine import rule_engine
+from app.events.engine import event_engine
 from app.alarm.manager import alarm_manager
 from app.redis_client import check_redis_health, close_redis
 from app.db import crud
@@ -37,9 +38,8 @@ async def _fps_logger():
 
 async def _detection_result_consumer():
     """
-    Detection result_queue'dan sonuçları tüketir; Tracking Engine ve Rule
-    Engine'i besler.
-    Faz 4'te Event Engine bu ihlallerden DB olayı üretecek.
+    Detection result_queue'dan sonuçları tüketir; Tracking Engine, Rule
+    Engine ve Event Engine'i (Faz 4) besler.
     """
     from app.detection.engine import detection_engine
     while True:
@@ -54,15 +54,14 @@ async def _detection_result_consumer():
                     "detection.result",
                     **summary,
                 )
-            # Yangın/düşme varsa warning seviyesinde logla
-            if summary["fire"] or summary["smoke"]:
-                log.warning("detection.alert.fire_smoke", camera_id=summary["camera_id"])
-            if summary["fall"]:
-                log.warning("detection.alert.fall", camera_id=summary["camera_id"])
 
             # Faz 3: genel tespitleri (person/vehicle) takip et, sonra kural motoruna gönder
             tracked_objects = tracking_engine.update(result.camera_id, result.general)
-            rule_engine.evaluate(result.camera_id, tracked_objects)
+            violations = rule_engine.evaluate(result.camera_id, tracked_objects)
+
+            # Faz 4: kural ihlalleri + tespit-bazlı alarmlar (yangın/düşme/KKD)
+            # → risk puanlama + dedup + thumbnail + DB olay kaydı
+            await event_engine.process(result, violations)
         except asyncio.TimeoutError:
             continue
         except Exception as exc:

@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     postgres_user: str = "postgres"
     postgres_password: str = "PsQl41."
     database_url: str = "postgresql+asyncpg://postgres:PsQl41.@localhost:5432/factory_ai"
+    # SQL sorgu logları (echo) terminali dolduruyor ve gerçek hataları gömüyor —
+    # sadece SQL hata ayıklaması gerektiğinde DB_ECHO=true yapın.
+    db_echo: bool = False
 
     # Redis
     redis_url: str = "redis://localhost:6379/0"
@@ -47,6 +50,9 @@ class Settings(BaseSettings):
     # Rule Engine
     distance_alert_pixels: float = 150.0  # Forklift (vehicle)-insan yakınlık eşiği (piksel)
     zones_cache_ttl_seconds: int = 30     # Zone tanımlarının DB'den yeniden okunma sıklığı
+
+    # Event Engine (Faz 4)
+    event_dedup_seconds: float = 5.0  # Aynı olay bu süre içinde tekrar üretilmez (kayan pencere)
 
     # Video
     clips_dir: str = "/app/clips"

@@ -1,5 +1,5 @@
 from sqlalchemy import (
-    String, Integer, BigInteger, Float, Boolean, Text, JSON,
+    String, Integer, BigInteger, Float, Boolean, Text, JSON, Uuid,
     PrimaryKeyConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -51,7 +51,11 @@ class Event(Base):
     # TimescaleDB hypertable: partition sütunu primary key'in parçası olmalı
     __table_args__ = (PrimaryKeyConstraint("id", "started_at"),)
 
-    id: Mapped[str] = mapped_column(String(36))
+    # DB'deki sütun UUID (bkz. migration 001). String(36) kullanılırsa SQLAlchemy
+    # parametreyi ::VARCHAR cast'ler ve PostgreSQL "column id is of type uuid but
+    # expression is of type character varying" hatası verir. Uuid(as_uuid=False)
+    # ile Python tarafında str, SQL tarafında UUID olarak bağlanır.
+    id: Mapped[str] = mapped_column(Uuid(as_uuid=False))
     camera_id: Mapped[str] = mapped_column(String(50))
     event_type: Mapped[str] = mapped_column(String(100))
     severity: Mapped[str] = mapped_column(String(20))

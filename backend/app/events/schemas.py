@@ -24,6 +24,7 @@ class Severity(str, Enum):
 
 
 class EventStatus(str, Enum):
+    PENDING = "PENDING"      # Temporal onay bekliyor (MVP'de üretilmiyor, lifecycle'da tanımlı)
     ACTIVE = "ACTIVE"
     SUSTAINED = "SUSTAINED"
     RESOLVED = "RESOLVED"
@@ -58,3 +59,14 @@ class EventResponse(BaseModel):
     metadata: dict = {}
     status: EventStatus
     created_at: datetime
+
+
+class EventListResponse(BaseModel):
+    items: List[EventResponse]
+    total: int
+    limit: int
+    offset: int
+
+
+class EventStatusUpdate(BaseModel):
+    status: EventStatus

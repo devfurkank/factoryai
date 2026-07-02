@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
@@ -6,6 +6,7 @@ from app.camera.manager import camera_manager
 from app.camera.schemas import CameraConfig, CameraStatus
 from app.database import get_db
 from app.db import crud
+from app.events.schemas import EventListResponse
 
 router = APIRouter(prefix="/api/cameras", tags=["cameras"])
 
@@ -49,6 +50,23 @@ async def get_camera_status(camera_id: str):
     if not status:
         raise HTTPException(status_code=404, detail="Kamera bulunamadı")
     return status
+
+
+@router.get("/{camera_id}/events", response_model=EventListResponse)
+async def get_camera_events(
+    camera_id: str,
+    limit: int = Query(default=50, le=500),
+    offset: int = Query(default=0, ge=0),
+    db: AsyncSession = Depends(get_db),
+):
+    """Kameranın olayları (Faz 4 — Gün 15), yeniden eskiye sıralı."""
+    rows, total = await crud.list_events(db, camera_id=camera_id, limit=limit, offset=offset)
+    return EventListResponse(
+        items=[crud.event_row_to_response(r) for r in rows],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.post("", response_model=CameraConfig, status_code=201)
