@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const WS_BASE = import.meta.env.VITE_WS_URL || `ws://${location.host}`;
 
@@ -7,41 +7,49 @@ export function useWebSocket(path) {
   const [connected, setConnected] = useState(false);
   const [lastMessage, setLastMessage] = useState(null);
 
-  const connect = useCallback(() => {
-    if (ws.current?.readyState === WebSocket.OPEN) return;
-    ws.current = new WebSocket(`${WS_BASE}${path}`);
-
-    ws.current.onopen = () => setConnected(true);
-    ws.current.onclose = () => {
-      setConnected(false);
-      setTimeout(connect, 3000); // otomatik yeniden bağlan
-    };
-    ws.current.onerror = () => ws.current?.close();
-    ws.current.onmessage = (e) => {
-      try {
-        setLastMessage(JSON.parse(e.data));
-      } catch {
-        setLastMessage(e.data);
-      }
-    };
-
-    // Ping - bağlantıyı canlı tut
-    const ping = setInterval(() => {
-      if (ws.current?.readyState === WebSocket.OPEN) {
-        ws.current.send("ping");
-      }
-    }, 25000);
-
-    ws.current._ping = ping;
-  }, [path]);
-
   useEffect(() => {
+    // Tüm zamanlayıcılar bu effect kapsamında tutulur ve cleanup'ta topluca
+    // temizlenir — önceki implementasyon her reconnect'te yeni bir ping
+    // interval'i yaratıyor ve yalnızca sonuncusunu temizliyordu (leak);
+    // unmount sonrası reconnect setTimeout'u da çalışmaya devam ediyordu.
+    let disposed = false;
+    let reconnectTimer = null;
+    let pingTimer = null;
+
+    const connect = () => {
+      if (disposed) return;
+      const socket = new WebSocket(`${WS_BASE}${path}`);
+      ws.current = socket;
+
+      socket.onopen = () => setConnected(true);
+      socket.onclose = () => {
+        setConnected(false);
+        clearInterval(pingTimer);
+        if (!disposed) reconnectTimer = setTimeout(connect, 3000);
+      };
+      socket.onerror = () => socket.close();
+      socket.onmessage = (e) => {
+        try {
+          setLastMessage(JSON.parse(e.data));
+        } catch {
+          setLastMessage(e.data);
+        }
+      };
+
+      // Ping - bağlantıyı canlı tut
+      pingTimer = setInterval(() => {
+        if (socket.readyState === WebSocket.OPEN) socket.send("ping");
+      }, 25000);
+    };
+
     connect();
     return () => {
-      clearInterval(ws.current?._ping);
+      disposed = true;
+      clearTimeout(reconnectTimer);
+      clearInterval(pingTimer);
       ws.current?.close();
     };
-  }, [connect]);
+  }, [path]);
 
   return { connected, lastMessage };
 }

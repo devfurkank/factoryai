@@ -266,3 +266,60 @@ class TestRuleEngineOrchestration:
         engine = RuleEngine()
         obj = _obj(1, 50, 50)
         assert engine.evaluate("cam_01", [obj]) == []
+
+
+# ── State Pruning (bellek sızıntısı önlemi — code review düzeltmesi) ─────────
+class TestStatePruning:
+    """Track ID'ler monoton arttığı için evaluator state sözlükleri temizlik
+    yapılmazsa 7/24 sistemde sınırsız büyür. Eşik aşıldığında kaybolmuş
+    track'lerin anahtarları atılmalı."""
+
+    def _zone(self, zone_id="z1", rules=None):
+        return ZoneData(
+            id=zone_id, camera_id="cam_01", name="Bölge", zone_type="forbidden",
+            polygon=[[0, 0], [100, 0], [100, 100], [0, 100]], risk_level="high",
+            allowed_classes=[], rules=rules or {},
+        )
+
+    def test_zone_state_pruned_for_lost_tracks(self, monkeypatch):
+        monkeypatch.setattr(ZoneRuleEvaluator, "_PRUNE_THRESHOLD", 3)
+        ev = ZoneRuleEvaluator()
+        zone = self._zone()
+        # 4 track içeride → 4 state anahtarı
+        ev.evaluate("cam_01", [_obj(i, 50, 50) for i in range(1, 5)], [zone])
+        assert len(ev._inside_state) == 4
+        # Sadece track 99 kaldı → eskiler temizlenmeli
+        ev.evaluate("cam_01", [_obj(99, 50, 50)], [zone])
+        assert set(k[2] for k in ev._inside_state) == {99}
+
+    def test_zone_state_not_pruned_below_threshold(self):
+        ev = ZoneRuleEvaluator()  # varsayılan eşik 1000
+        zone = self._zone()
+        ev.evaluate("cam_01", [_obj(1, 50, 50)], [zone])
+        ev.evaluate("cam_01", [_obj(2, 50, 50)], [zone])
+        # Eşik altında track 1'in anahtarı korunur (flicker toleransı)
+        assert (("cam_01", "z1", 1) in ev._inside_state)
+
+    def test_direction_state_pruned(self, monkeypatch):
+        monkeypatch.setattr(DirectionRuleEvaluator, "_PRUNE_THRESHOLD", 3)
+        ev = DirectionRuleEvaluator()
+        zone = self._zone(rules={
+            "direction_line": [[50, 0], [50, 100]],
+            "allowed_direction": "left_to_right",
+        })
+        ev.evaluate("cam_01", [_obj(i, 20, 50) for i in range(1, 5)], [zone])
+        assert len(ev._last_side) == 4
+        ev.evaluate("cam_01", [_obj(99, 20, 50)], [zone])
+        assert set(k[2] for k in ev._last_side) == {99}
+
+    def test_dwell_state_pruned_even_when_zone_deleted(self, monkeypatch):
+        monkeypatch.setattr(DwellRuleEvaluator, "_PRUNE_THRESHOLD", 3)
+        ev = DwellRuleEvaluator()
+        zone = self._zone(rules={"max_dwell_seconds": 999})
+        ev.evaluate("cam_01", [_obj(i, 50, 50) for i in range(1, 5)], [zone])
+        assert len(ev._entry_ts) == 4
+        # Zone silindi (listede yok) — bölge bazlı temizlik çalışamaz,
+        # global süpürme eski anahtarları yine de toplamalı
+        ev.evaluate("cam_01", [_obj(99, 50, 50)], [])
+        assert all(k[2] == 99 or k not in ev._entry_ts for k in list(ev._entry_ts))
+        assert not any(k[2] in (1, 2, 3, 4) for k in ev._entry_ts)

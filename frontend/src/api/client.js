@@ -25,5 +25,12 @@ export const api = {
     },
     get: (id) => request(`/api/events/${id}`),
     dailyStats: () => request("/api/events/stats/daily"),
+    updateStatus: (id, status) =>
+      request(`/api/events/${id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      }),
+    thumbnailUrl: (id) => `${BASE}/api/events/${id}/thumbnail`,
+    clipUrl: (id) => `${BASE}/api/events/${id}/clip`,
   },
 };

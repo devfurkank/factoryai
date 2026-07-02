@@ -2,7 +2,9 @@
 Detection API — Model durumu, tespit istatistikleri ve canlı MJPEG yayını.
 """
 import asyncio
+import html
 from typing import List
+from urllib.parse import quote
 
 import cv2
 import numpy as np
@@ -147,11 +149,15 @@ async def detection_view(camera_id: str):
     """Basit bir HTML sayfası döndürür — tarayıcıda kameranın canlı tespit
     akışını gösterir. Faz 6'daki React panelinden önce hızlı görsel doğrulama
     için kullanılır: /api/detection/{camera_id}/view"""
+    # camera_id URL'den gelir — HTML'e gömmeden önce escape edilmeli
+    # (reflected XSS önlemi); href için ayrıca URL-encode edilir.
+    safe_id = html.escape(camera_id)
+    safe_url_id = quote(camera_id, safe="")
     return f"""<!DOCTYPE html>
 <html lang="tr">
 <head>
 <meta charset="utf-8">
-<title>{camera_id} — Canlı Tespit</title>
+<title>{safe_id} — Canlı Tespit</title>
 <style>
   body {{ background:#111; color:#eee; font-family:sans-serif; text-align:center; margin:0; padding:20px; }}
   img {{ max-width:95vw; border:2px solid #333; border-radius:8px; }}
@@ -160,8 +166,8 @@ async def detection_view(camera_id: str):
 </style>
 </head>
 <body>
-  <h2>{camera_id} — Canlı Tespit Akışı</h2>
-  <img src="/api/detection/{camera_id}/stream" alt="canlı akış">
+  <h2>{safe_id} — Canlı Tespit Akışı</h2>
+  <img src="/api/detection/{safe_url_id}/stream" alt="canlı akış">
   <p><a href="/view">&larr; Tüm kameralar</a></p>
 </body>
 </html>"""

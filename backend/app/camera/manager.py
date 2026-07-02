@@ -79,6 +79,15 @@ class CameraManager:
         if config.is_active:
             await self._start_camera(camera_id)
 
+        # Faz 5: HLS yayınını da güncel config'e senkronize et (RTSP eklendi/
+        # URL değişti/pasifleşti). Import lazy — video modülü kamera modülünden
+        # önce yüklenmek zorunda kalmasın.
+        try:
+            from app.video.hls import hls_manager
+            await hls_manager.sync_camera(config)
+        except Exception as exc:
+            log.warning("camera.hls_sync_failed", camera_id=camera_id, error=repr(exc))
+
     async def _start_camera(self, camera_id: str):
         config = self._cameras[camera_id]
         stream = CameraStream(
@@ -109,6 +118,11 @@ class CameraManager:
         self._latest_frames[camera_id] = (frame, timestamp)
         self.frame_ready.set()
 
+        # Faz 5: frame'i klip üretimi için ring buffer'a da ekle (JPEG encode
+        # thread pool'da yapılır; olay anında pre/post klip bu buffer'dan kesilir)
+        from app.video.buffer import video_buffer_manager
+        await video_buffer_manager.add_frame(camera_id, frame, timestamp)
+
     def pop_latest_frames(self) -> List[tuple]:
         """O ana kadar biriken (kamera başına en fazla 1 tane) en güncel
         frame'leri döndürür ve bekleyen listeyi temizler. DetectionEngine
@@ -135,7 +149,8 @@ class CameraManager:
         )
 
     def get_all_statuses(self) -> List[CameraStatus]:
-        return [self.get_status(cid) for cid in self._cameras if self.get_status(cid)]
+        statuses = (self.get_status(cid) for cid in self._cameras)
+        return [s for s in statuses if s is not None]
 
     def list_cameras(self) -> List[CameraConfig]:
         return list(self._cameras.values())

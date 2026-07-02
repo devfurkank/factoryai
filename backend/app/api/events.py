@@ -1,8 +1,7 @@
-"""Events API — Faz 4 (Gün 15).
+"""Events API — Faz 4 (Gün 15) + Faz 5 (Gün 16: /clip).
 
-Olay listesi (filtreli + sayfalı), olay detayı, thumbnail, günlük istatistik
-ve lifecycle durum güncellemesi. Klip endpoint'i (/clip) Faz 5'te Video
-Engine ile eklenecek.
+Olay listesi (filtreli + sayfalı), olay detayı, thumbnail, video klip,
+günlük istatistik ve lifecycle durum güncellemesi.
 """
 import os
 from datetime import date, datetime, time, timedelta, timezone
@@ -103,6 +102,27 @@ async def get_event_thumbnail(event_id: str, db: AsyncSession = Depends(get_db))
     if not row.thumbnail_path or not os.path.isfile(row.thumbnail_path):
         raise HTTPException(status_code=404, detail="Bu olay için thumbnail yok")
     return FileResponse(row.thumbnail_path, media_type="image/jpeg")
+
+
+@router.get("/{event_id}/clip")
+async def get_event_clip(event_id: str, db: AsyncSession = Depends(get_db)):
+    """Olayın video klibini (pre/post buffer MP4) döndürür — Faz 5 (Gün 16).
+    Klip, olay anından post-buffer süresi (varsayılan 10 sn) + işleme kadar
+    sonra hazır olur; hazır değilse 404 döner."""
+    row = await crud.get_event(db, event_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Olay bulunamadı")
+    if not row.clip_path or not os.path.isfile(row.clip_path):
+        raise HTTPException(
+            status_code=404,
+            detail="Bu olay için klip yok (henüz üretiliyor olabilir — "
+                   "olay anından ~15 sn sonra tekrar deneyin)",
+        )
+    return FileResponse(
+        row.clip_path,
+        media_type="video/mp4",
+        filename=f"{event_id}.mp4",
+    )
 
 
 @router.patch("/{event_id}/status", response_model=EventResponse)

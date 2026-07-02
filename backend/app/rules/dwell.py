@@ -24,6 +24,11 @@ log = structlog.get_logger()
 
 
 class DwellRuleEvaluator:
+    # Kaybolmuş track / silinmiş zone anahtarları bu eşiğin üzerinde temizlenir.
+    # Bölge bazlı temizlik (aşağıda) yalnızca hâlâ AKTİF zone'lar için çalışır;
+    # zone silinir/pasifleşirse anahtarları ancak bu global süpürme toplar.
+    _PRUNE_THRESHOLD = 1000
+
     def __init__(self):
         # (camera_id, zone_id, track_id) → bölgeye giriş zamanı
         self._entry_ts: Dict[Tuple[str, str, int], float] = {}
@@ -87,6 +92,16 @@ class DwellRuleEvaluator:
                 if k[0] == camera_id and k[1] == zone.id and k[2] not in active_track_ids
             ]
             for k in stale_keys:
+                self._entry_ts.pop(k, None)
+                self._alerted.discard(k)
+
+        if len(self._entry_ts) >= self._PRUNE_THRESHOLD:
+            current_ids = {o.track_id for o in tracked_objects}
+            stale = [
+                k for k in self._entry_ts
+                if k[0] == camera_id and k[2] not in current_ids
+            ]
+            for k in stale:
                 self._entry_ts.pop(k, None)
                 self._alerted.discard(k)
 

@@ -168,6 +168,8 @@ class EventEngine:
         # Import burada: db.crud → events.schemas zinciriyle döngüsel import'u önler
         from app.database import AsyncSessionLocal
         from app.db import crud
+        from app.alarm.manager import alarm_manager
+        from app.video.clips import clip_service
 
         for event in events:
             event_id = str(uuid.uuid4())
@@ -204,6 +206,14 @@ class EventEngine:
                 zone_id=event.zone_id,
                 track_ids=event.track_ids,
                 thumbnail=thumbnail_path,
+            )
+
+            # Faz 5 (Gün 18): tüm alarm kanallarına bildir (WS + webhook + Telegram)
+            await alarm_manager.notify_event(event_id, event, thumbnail_path)
+
+            # Faz 5 (Gün 16): pre/post buffer'dan klip üretimini arka planda başlat
+            clip_service.schedule(
+                event_id, event.camera_id, event.started_at.timestamp()
             )
 
         return created_ids

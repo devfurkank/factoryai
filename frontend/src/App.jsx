@@ -2,6 +2,7 @@ import { useState } from "react";
 import CameraGrid from "./components/CameraGrid";
 import AlarmPanel from "./components/AlarmPanel";
 import Dashboard from "./components/Dashboard";
+import EventList from "./components/EventList";
 import clsx from "clsx";
 
 const TABS = [
@@ -36,7 +37,7 @@ export default function App() {
             </button>
           ))}
         </nav>
-        <span className="ml-auto text-xs text-slate-500">MVP v0.2 — Faz 1</span>
+        <span className="ml-auto text-xs text-slate-500">MVP v0.3 — Faz 5</span>
       </header>
 
       {/* ── Ana Alan ───────────────────────────────────────────────────────── */}
@@ -44,11 +45,7 @@ export default function App() {
         <main className="flex-1 overflow-y-auto p-6">
           {tab === "live" && <CameraGrid />}
           {tab === "dashboard" && <Dashboard />}
-          {tab === "events" && (
-            <p className="text-slate-500 text-sm">
-              Olay listesi — Faz 4'te (Gün 15) implement edilecek.
-            </p>
-          )}
+          {tab === "events" && <EventList />}
         </main>
         <AlarmPanel />
       </div>

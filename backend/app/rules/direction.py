@@ -31,6 +31,10 @@ def _line_side(lx1: float, ly1: float, lx2: float, ly2: float, px: float, py: fl
 
 
 class DirectionRuleEvaluator:
+    # Kaybolmuş track anahtarları bu eşiğin üzerinde temizlenir (bellek sızıntısı
+    # önlemi — track ID'ler monoton artar, bkz. ZoneRuleEvaluator._prune)
+    _PRUNE_THRESHOLD = 1000
+
     def __init__(self):
         # (camera_id, zone_id, track_id) → son bilinen taraf (işaret)
         self._last_side: Dict[Tuple[str, str, int], float] = {}
@@ -78,6 +82,15 @@ class DirectionRuleEvaluator:
                         ))
 
                 self._last_side[key] = side
+
+        if len(self._last_side) >= self._PRUNE_THRESHOLD:
+            current_ids = {o.track_id for o in tracked_objects}
+            stale = [
+                k for k in self._last_side
+                if k[0] == camera_id and k[2] not in current_ids
+            ]
+            for k in stale:
+                del self._last_side[k]
 
         return violations
 

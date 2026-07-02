@@ -54,12 +54,21 @@ class Settings(BaseSettings):
     # Event Engine (Faz 4)
     event_dedup_seconds: float = 5.0  # Aynı olay bu süre içinde tekrar üretilmez (kayan pencere)
 
-    # Video
+    # Video (Faz 5)
     clips_dir: str = "/app/clips"
     thumbnails_dir: str = "/app/thumbnails"
     streams_dir: str = "/app/streams"
     video_pre_buffer_seconds: int = 10
     video_post_buffer_seconds: int = 10
+    video_buffer_max_fps: int = 15   # Ring buffer boyutlandırma üst sınırı (deque maxlen)
+    clip_jpeg_quality: int = 80      # Buffer'daki frame'lerin JPEG kalitesi
+    ffmpeg_binary: str = "ffmpeg"    # PATH'te değilse tam yol verin
+
+    # HLS Live Stream (Faz 5 — sadece RTSP kameralar; webcam MJPEG ile izlenir)
+    hls_enabled: bool = True
+    hls_segment_seconds: int = 2
+    hls_list_size: int = 3
+    hls_fps: int = 15   # Sabit çıkış FPS — bozuk timestamp'li IP kameralarda şart
 
     # Alarm
     alarm_webhook_url: str = ""

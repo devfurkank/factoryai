@@ -20,6 +20,11 @@ log = structlog.get_logger()
 
 
 class ZoneRuleEvaluator:
+    # State sözlüğü bu boyutu aşınca kaybolmuş track'lerin anahtarları temizlenir
+    # (track ID'ler monoton arttığı için temizlik yapılmazsa 7/24 çalışan
+    # sistemde sınırsız büyür — EventEngine._prune_dedup_cache ile aynı önlem)
+    _PRUNE_THRESHOLD = 1000
+
     def __init__(self):
         # (camera_id, zone_id, track_id) → son bilinen "içeride mi" durumu
         self._inside_state: Dict[Tuple[str, str, int], bool] = {}
@@ -67,7 +72,22 @@ class ZoneRuleEvaluator:
 
                 self._inside_state[key] = inside
 
+        self._prune(camera_id, tracked_objects)
         return violations
+
+    def _prune(self, camera_id: str, tracked_objects: List[TrackedObject]):
+        """Bu kamerada artık görünmeyen track'lerin state anahtarlarını atar.
+        Eşik altında hiç çalışmaz — track'in tek frame'lik kaybolmalarında
+        (flicker) yeniden-giriş alarmı üretme riskini pratikte sıfırlar."""
+        if len(self._inside_state) < self._PRUNE_THRESHOLD:
+            return
+        current_ids = {o.track_id for o in tracked_objects}
+        stale = [
+            k for k in self._inside_state
+            if k[0] == camera_id and k[2] not in current_ids
+        ]
+        for k in stale:
+            del self._inside_state[k]
 
     @staticmethod
     def _build_polygon(zone: ZoneData):

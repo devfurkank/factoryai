@@ -35,6 +35,9 @@ lapx==0.9.4
 shapely==2.0.4
 Pillow==10.3.0
 
+# ── HTTP İstemci (alarm webhook + Telegram bildirimleri, Faz 5) ───────────────
+httpx==0.27.0
+
 # ── İzleme / Loglama ──────────────────────────────────────────────────────────
 prometheus-fastapi-instrumentator==7.0.0
 structlog==24.1.0
@@ -42,4 +45,3 @@ structlog==24.1.0
 # ── Test ──────────────────────────────────────────────────────────────────────
 pytest==8.2.0
 pytest-asyncio==0.23.6
-httpx==0.27.0

@@ -1,13 +1,77 @@
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import Hls from "hls.js";
 import { api } from "../api/client";
 import clsx from "clsx";
+
+/**
+ * Canlı video — Faz 5 (Gün 17).
+ * RTSP kameralar: HLS (hls.js) → /streams/{id}/stream.m3u8 (FFmpeg + nginx).
+ * Webcam kameralar veya HLS başarısızsa: MJPEG fallback
+ * → /api/detection/{id}/stream (tespit kutuları + zone çizimleriyle).
+ */
+function LiveVideo({ camera, isOnline }) {
+  const videoRef = useRef(null);
+  const [hlsFailed, setHlsFailed] = useState(false);
+  const useHls = camera.source_type === "rtsp" && !hlsFailed;
+
+  useEffect(() => {
+    if (!useHls || !videoRef.current) return;
+    const src = `/streams/${camera.id}/stream.m3u8`;
+    const video = videoRef.current;
+
+    if (Hls.isSupported()) {
+      const hls = new Hls({ liveSyncDurationCount: 2, maxLiveSyncPlaybackRate: 1.5 });
+      hls.loadSource(src);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.ERROR, (_, data) => {
+        if (data.fatal) {
+          hls.destroy();
+          setHlsFailed(true); // MJPEG fallback'e geç
+        }
+      });
+      return () => hls.destroy();
+    }
+    if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = src; // Safari native HLS
+      return;
+    }
+    setHlsFailed(true);
+  }, [useHls, camera.id]);
+
+  if (!isOnline) {
+    return (
+      <span className="text-slate-500 text-sm">Kamera bağlı değil</span>
+    );
+  }
+
+  if (useHls) {
+    return (
+      <video
+        ref={videoRef}
+        autoPlay
+        muted
+        playsInline
+        className="w-full h-full object-contain"
+      />
+    );
+  }
+
+  return (
+    <img
+      src={`/api/detection/${camera.id}/stream`}
+      alt={`${camera.name} canlı yayın`}
+      className="w-full h-full object-contain"
+    />
+  );
+}
 
 function CameraCard({ camera, status }) {
   const isOnline = status?.is_connected;
   return (
     <div className="bg-surface border border-border rounded-lg overflow-hidden">
       <div className="bg-black aspect-video flex items-center justify-center relative">
-        <span className="text-slate-500 text-sm">HLS stream — Faz 5'te aktif</span>
+        <LiveVideo camera={camera} isOnline={isOnline} />
         <span
           className={clsx(
             "absolute top-2 right-2 w-2.5 h-2.5 rounded-full",

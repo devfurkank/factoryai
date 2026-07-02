@@ -1,3 +1,4 @@
+import structlog
 from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
@@ -8,6 +9,7 @@ from app.database import get_db
 from app.db import crud
 from app.events.schemas import EventListResponse
 
+log = structlog.get_logger()
 router = APIRouter(prefix="/api/cameras", tags=["cameras"])
 
 
@@ -18,8 +20,8 @@ async def list_cameras(db: AsyncSession = Depends(get_db)):
         # DB erişilebilir ve kayıt varsa döndür; yoksa bellek listesine geri dön
         if rows:
             return [crud.row_to_config(r) for r in rows]
-    except Exception:
-        pass
+    except Exception as exc:
+        log.warning("cameras.db_fallback", op="list", error=repr(exc))
     return camera_manager.list_cameras()
 
 
@@ -35,8 +37,8 @@ async def get_camera(camera_id: str, db: AsyncSession = Depends(get_db)):
         row = await crud.get_camera(db, camera_id)
         if row:
             return crud.row_to_config(row)
-    except Exception:
-        pass
+    except Exception as exc:
+        log.warning("cameras.db_fallback", op="get", error=repr(exc))
     # Bellek durumuna bak
     mem = {c.id: c for c in camera_manager.list_cameras()}
     if camera_id not in mem:
@@ -73,8 +75,8 @@ async def get_camera_events(
 async def add_camera(config: CameraConfig, db: AsyncSession = Depends(get_db)):
     try:
         await crud.upsert_camera(db, config)
-    except Exception:
-        pass
+    except Exception as exc:
+        log.warning("cameras.db_fallback", op="add", camera_id=config.id, error=repr(exc))
     camera_manager.register(config)
     return config
 
@@ -87,7 +89,7 @@ async def update_camera(
         raise HTTPException(status_code=400, detail="URL ve body'deki kamera ID'leri uyuşmuyor")
     try:
         await crud.upsert_camera(db, config)
-    except Exception:
-        pass
+    except Exception as exc:
+        log.warning("cameras.db_fallback", op="update", camera_id=config.id, error=repr(exc))
     camera_manager.register(config)
     return config

@@ -1,9 +1,13 @@
 import asyncio
+import html
+import os
 import structlog
+from urllib.parse import quote
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from prometheus_fastapi_instrumentator import Instrumentator
 
@@ -15,10 +19,11 @@ from app.tracking.engine import tracking_engine
 from app.rules.engine import rule_engine
 from app.events.engine import event_engine
 from app.alarm.manager import alarm_manager
+from app.video.hls import hls_manager
 from app.redis_client import check_redis_health, close_redis
 from app.db import crud
 from app.db.crud import upsert_camera
-from app.api import cameras, events, websocket, detection, zones, tracking, rules
+from app.api import cameras, events, websocket, detection, zones, tracking, rules, streams
 
 log = structlog.get_logger()
 
@@ -115,12 +120,15 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(_detection_result_consumer())
     asyncio.create_task(_fps_logger())
     asyncio.create_task(_zones_refresher())
+    # Faz 5: RTSP kameralar için HLS canlı yayın süreçleri (FFmpeg)
+    asyncio.create_task(hls_manager.start(camera_manager))
 
     yield
 
     # ── Kapatma ────────────────────────────────────────────────────────────────
     log.info("app.shutdown")
     detection_engine.stop()
+    await hls_manager.stop_all()
     await camera_manager.stop_all()
     await close_redis()
 
@@ -128,7 +136,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Fabrika Güvenlik Kameraları — AI Platform",
     description="Modüler fabrika güvenlik kamera analizi platformu",
-    version="0.2.0",
+    version="0.3.0",
     lifespan=lifespan,
 )
 
@@ -152,6 +160,12 @@ app.include_router(detection.router)
 app.include_router(zones.router)
 app.include_router(tracking.router)
 app.include_router(rules.router)
+app.include_router(streams.router)
+
+# HLS segmentleri: Docker'da nginx servis eder (/streams/ location); yerel
+# geliştermede (nginx yok) aynı URL'lerin çalışması için backend de servis eder.
+os.makedirs(settings.streams_dir, exist_ok=True)
+app.mount("/streams", StaticFiles(directory=settings.streams_dir), name="streams")
 
 
 @app.get("/view", response_class=HTMLResponse, tags=["system"])
@@ -160,8 +174,11 @@ async def cameras_view_index():
     tüm kameraları ve canlı tespit akışı linklerini listeler."""
     cameras = camera_manager.list_cameras()
     if cameras:
+        # Kamera ID/adı API üzerinden serbestçe tanımlanabildiği için HTML'e
+        # gömmeden önce escape edilir (stored XSS önlemi)
         items = "".join(
-            f'<li><a href="/api/detection/{c.id}/view">{c.name} ({c.id})</a></li>'
+            f'<li><a href="/api/detection/{quote(c.id, safe="")}/view">'
+            f'{html.escape(c.name)} ({html.escape(c.id)})</a></li>'
             for c in cameras
         )
     else:
@@ -202,7 +219,7 @@ async def health():
     overall = "ok" if db_ok else "degraded"
     return {
         "status": overall,
-        "version": "0.2.0",
+        "version": "0.3.0",
         "env": settings.app_env,
         "cameras": len(camera_manager.list_cameras()),
         "active_ws": alarm_manager.connection_count,

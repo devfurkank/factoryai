@@ -260,6 +260,19 @@ async def get_event(db: AsyncSession, event_id: str) -> Event | None:
     return result.scalar_one_or_none()
 
 
+async def set_event_clip_path(
+    db: AsyncSession, event_id: str, clip_path: str
+) -> Event | None:
+    """Klip üretimi tamamlandığında (Faz 5 ClipService) clip_path'i yazar."""
+    row = await get_event(db, event_id)
+    if row is None:
+        return None
+    row.clip_path = clip_path
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
 async def update_event_status(
     db: AsyncSession,
     event_id: str,

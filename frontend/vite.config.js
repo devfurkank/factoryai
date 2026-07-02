@@ -9,6 +9,8 @@ export default defineConfig({
       "/api": { target: "http://localhost:8000", changeOrigin: true },
       "/ws": { target: "ws://localhost:8000", ws: true },
       "/health": { target: "http://localhost:8000", changeOrigin: true },
+      // HLS segmentleri — yerel geliştirmede backend StaticFiles servis eder
+      "/streams": { target: "http://localhost:8000", changeOrigin: true },
     },
   },
 });
