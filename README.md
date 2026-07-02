@@ -113,9 +113,9 @@ Veritabanına RTSP kamera eklemek için `POST /api/cameras`:
 | Faz | Günler | Durum |
 |-----|--------|-------|
 | **Faz 0** — Mimari Tasarım | 1 | ✅ Tamamlandı |
-| Faz 1 — Altyapı | 2–3 | ⏳ Bekliyor |
-| Faz 2 — Tespit (YOLOv8) | 4–8 | ⏳ Bekliyor |
-| Faz 3 — Takip + Kural | 9–12 | ⏳ Bekliyor |
+| Faz 1 — Altyapı | 2–3 | ✅ Tamamlandı |
+| Faz 2 — Tespit (YOLOv8) | 4–8 | ✅ Tamamlandı |
+| Faz 3 — Takip + Kural | 9–12 | ✅ Tamamlandı |
 | Faz 4 — Olay Yönetimi | 13–15 | ⏳ Bekliyor |
 | Faz 5 — Video + Alarm | 16–18 | ⏳ Bekliyor |
 | Faz 6 — Raporlama | 19–23 | ⏳ Bekliyor |
