@@ -1,7 +1,36 @@
 /** @type {import('tailwindcss').Config} */
+
+/** CSS değişkenine bağlı renk üretici — hem düz renk hem `/opacity` modifikatörünü destekler. */
+function withOpacity(variable) {
+  return ({ opacityValue }) =>
+    opacityValue === undefined
+      ? `rgb(var(${variable}))`
+      : `rgb(var(${variable}) / ${opacityValue})`;
+}
+
+const TOKENS = [
+  "background", "on-background",
+  "surface", "on-surface", "surface-dim", "surface-bright",
+  "surface-container-lowest", "surface-container-low", "surface-container",
+  "surface-container-high", "surface-container-highest", "surface-variant",
+  "on-surface-variant", "outline", "outline-variant",
+  "inverse-surface", "inverse-on-surface", "inverse-primary", "surface-tint",
+  "primary", "on-primary", "primary-container", "on-primary-container",
+  "primary-fixed", "primary-fixed-dim", "on-primary-fixed", "on-primary-fixed-variant",
+  "secondary", "on-secondary", "secondary-container", "on-secondary-container",
+  "secondary-fixed", "secondary-fixed-dim", "on-secondary-fixed", "on-secondary-fixed-variant",
+  "tertiary", "on-tertiary", "tertiary-container", "on-tertiary-container",
+  "tertiary-fixed", "tertiary-fixed-dim", "on-tertiary-fixed", "on-tertiary-fixed-variant",
+  "error", "on-error", "error-container", "on-error-container",
+];
+
+const themeColors = Object.fromEntries(
+  TOKENS.map((name) => [name, withOpacity(`--color-${name}`)])
+);
+
 export default {
   content: ["./index.html", "./src/**/*.{js,jsx}"],
-  darkMode: "class",
+  darkMode: ["class", '[data-theme="dark"]'],
   theme: {
     extend: {
       fontFamily: {
@@ -11,56 +40,7 @@ export default {
         body: ["Inter", "sans-serif"],
         label: ["Inter", "sans-serif"],
       },
-      colors: {
-        // Glacier — glassmorphism koyu tema token'ları (stitch tasarımlarından)
-        "inverse-primary": "#0a4c6e",
-        "surface-dim": "#0f1524",
-        "on-primary-container": "#c8eaff",
-        "surface-container-high": "#1a2438",
-        "on-tertiary": "#1a002e",
-        "inverse-surface": "#e0e8f0",
-        "primary-fixed": "#c8eaff",
-        "primary-container": "#0e4d6e",
-        "on-primary": "#001f2e",
-        "tertiary-fixed": "#e8d0ff",
-        "secondary-container": "#1a3a4e",
-        outline: "#4a6070",
-        "on-secondary": "#001f2e",
-        tertiary: "#c8a0f0",
-        "surface-container-highest": "#202c42",
-        "on-background": "#e0e8f0",
-        secondary: "#88b4cc",
-        "surface-container-low": "#111828",
-        "surface-tint": "#7dd3fc",
-        "on-tertiary-container": "#e8d0ff",
-        "on-surface": "#e0e8f0",
-        "on-primary-fixed": "#001f2e",
-        surface: "#0f1524",
-        "surface-container-lowest": "#0a0e1a",
-        "on-secondary-fixed-variant": "#2a4a5e",
-        "on-surface-variant": "#a0b4c4",
-        background: "#0a0e1a",
-        "secondary-fixed-dim": "#88b4cc",
-        "on-secondary-container": "#c0d8e8",
-        "tertiary-fixed-dim": "#c8a0f0",
-        "on-tertiary-fixed": "#1a002e",
-        "outline-variant": "#2a3a48",
-        "secondary-fixed": "#c0d8e8",
-        "primary-fixed-dim": "#7dd3fc",
-        "surface-bright": "#1a2438",
-        "on-error-container": "#ffb3b3",
-        "surface-container": "#141c2e",
-        "tertiary-container": "#3d2060",
-        "surface-variant": "#1a2438",
-        primary: "#7dd3fc",
-        "on-tertiary-fixed-variant": "#4d2a73",
-        "on-secondary-fixed": "#0d1f2b",
-        error: "#ff6b6b",
-        "inverse-on-surface": "#0a0e1a",
-        "error-container": "#3d1414",
-        "on-primary-fixed-variant": "#004d73",
-        "on-error": "#1a0000",
-      },
+      colors: themeColors,
       borderRadius: {
         DEFAULT: "0.5rem",
         lg: "1rem",
@@ -68,9 +48,9 @@ export default {
         full: "9999px",
       },
       boxShadow: {
-        card: "0 1px 2px 0 rgb(0 0 0 / 0.2), 0 1px 3px 0 rgb(0 0 0 / 0.3)",
-        pop: "0 10px 32px -8px rgb(0 0 0 / 0.5), 0 4px 12px -4px rgb(0 0 0 / 0.3)",
-        glow: "0 0 30px rgba(125, 211, 252, 0.05)",
+        card: "0 1px 2px 0 rgb(0 0 0 / 0.08), 0 1px 3px 0 rgb(0 0 0 / 0.12)",
+        pop: "0 10px 32px -8px rgb(0 0 0 / 0.35), 0 4px 12px -4px rgb(0 0 0 / 0.2)",
+        glow: "0 0 30px rgb(var(--color-primary) / 0.05)",
       },
       keyframes: {
         "slide-in": {
@@ -82,8 +62,8 @@ export default {
           to: { opacity: "1", transform: "translateY(0)" },
         },
         "pulse-box": {
-          "0%, 100%": { borderColor: "rgba(125, 211, 252, 0.4)", boxShadow: "0 0 5px rgba(125, 211, 252, 0.2)" },
-          "50%": { borderColor: "rgba(125, 211, 252, 1)", boxShadow: "0 0 15px rgba(125, 211, 252, 0.6)" },
+          "0%, 100%": { borderColor: "rgb(var(--color-primary) / 0.4)", boxShadow: "0 0 5px rgb(var(--color-primary) / 0.2)" },
+          "50%": { borderColor: "rgb(var(--color-primary) / 1)", boxShadow: "0 0 15px rgb(var(--color-primary) / 0.6)" },
         },
       },
       animation: {

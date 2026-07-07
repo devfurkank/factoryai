@@ -6,6 +6,7 @@ import { api } from "../../api/client";
 import { useAlarms } from "../../context/AlarmContext";
 import { Badge, EmptyState } from "../ui";
 import Icon from "../Icon";
+import ThemeToggle from "../ThemeToggle";
 import { eventTypeLabel, SEVERITY_META, timeAgo } from "../../lib/format";
 
 /** Zil + açılır canlı alarm listesi. */
@@ -116,6 +117,7 @@ export default function Topbar() {
           {connected ? "Canlı bağlantı" : "Bağlantı kesildi"}
         </span>
         <div className="w-px h-6 bg-outline-variant/50" />
+        <ThemeToggle />
         <AlarmBell />
         <div className="w-8 h-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-sm border border-primary/30">
           FK

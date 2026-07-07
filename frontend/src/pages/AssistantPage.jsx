@@ -27,7 +27,7 @@ function AnswerEvents({ events }) {
           <button
             key={ev.id}
             onClick={() => navigate("/events")}
-            className="bg-surface/50 border border-white/10 rounded-xl overflow-hidden hover:border-primary/30 hover:bg-surface-container transition-all group flex flex-col text-left"
+            className="bg-surface/50 border border-outline-variant/40 rounded-xl overflow-hidden hover:border-primary/30 hover:bg-surface-container transition-all group flex flex-col text-left"
           >
             <div className="h-24 relative overflow-hidden bg-surface-container-high flex items-center justify-center">
               {ev.thumbnail_path ? (
@@ -105,7 +105,7 @@ export default function AssistantPage() {
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-32 bg-primary/5 blur-[100px] rounded-full pointer-events-none" />
 
         {/* Başlık */}
-        <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between bg-surface/40 z-10 flex-wrap gap-2">
+        <div className="px-6 py-4 border-b border-outline-variant/30 flex items-center justify-between bg-surface/40 z-10 flex-wrap gap-2">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
               <Icon name="robot_2" filled className="text-primary text-xl" />
@@ -139,7 +139,7 @@ export default function AssistantPage() {
                   <button
                     key={s}
                     onClick={() => send(s)}
-                    className="bg-surface border border-white/5 text-on-surface-variant text-xs py-2 px-4 rounded-full hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all"
+                    className="bg-surface border border-outline-variant/30 text-on-surface-variant text-xs py-2 px-4 rounded-full hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all"
                   >
                     {s}
                   </button>
@@ -171,7 +171,7 @@ export default function AssistantPage() {
                       ? "bg-primary/15 border-primary/20 rounded-tr-sm text-on-surface"
                       : m.error
                         ? "bg-error/10 border-error/20 rounded-tl-sm text-error"
-                        : "bg-surface-variant/40 border-white/5 rounded-tl-sm text-on-surface"
+                        : "bg-surface-variant/40 border-outline-variant/30 rounded-tl-sm text-on-surface"
                   )}
                 >
                   <p className="whitespace-pre-line">{m.text}</p>
@@ -186,7 +186,7 @@ export default function AssistantPage() {
               <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
                 <Icon name="robot_2" filled className="text-primary text-sm" />
               </div>
-              <div className="bg-surface-variant/40 border border-white/5 rounded-2xl rounded-tl-sm px-4 py-3">
+              <div className="bg-surface-variant/40 border border-outline-variant/30 rounded-2xl rounded-tl-sm px-4 py-3">
                 <Spinner className="text-base" />
               </div>
             </div>
@@ -194,14 +194,14 @@ export default function AssistantPage() {
         </div>
 
         {/* Giriş & öneriler */}
-        <div className="p-4 bg-surface/80 backdrop-blur-2xl border-t border-white/5 z-20">
+        <div className="p-4 bg-surface/80 backdrop-blur-2xl border-t border-outline-variant/30 z-20">
           {messages.length > 0 && (
             <div className="flex overflow-x-auto gap-2 pb-4 no-scrollbar">
               {SUGGESTIONS.map((s) => (
                 <button
                   key={s}
                   onClick={() => send(s)}
-                  className="flex-shrink-0 bg-surface border border-white/5 text-on-surface-variant text-xs py-2 px-4 rounded-full hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all whitespace-nowrap"
+                  className="flex-shrink-0 bg-surface border border-outline-variant/30 text-on-surface-variant text-xs py-2 px-4 rounded-full hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all whitespace-nowrap"
                 >
                   {s}
                 </button>
@@ -210,7 +210,7 @@ export default function AssistantPage() {
           )}
           <form
             onSubmit={(e) => { e.preventDefault(); send(); }}
-            className="bg-background border border-white/10 rounded-2xl p-1.5 flex items-end gap-2 focus-within:border-primary/30 transition-all"
+            className="bg-background border border-outline-variant/40 rounded-2xl p-1.5 flex items-end gap-2 focus-within:border-primary/30 transition-all"
           >
             <div className="flex-1 relative min-h-[44px] flex items-center">
               <Input
