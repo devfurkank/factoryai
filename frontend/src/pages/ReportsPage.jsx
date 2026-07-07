@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
-import { FileText, RefreshCw, Sparkles, CalendarDays } from "lucide-react";
 import { api } from "../api/client";
 import { Badge, Button, Card, CardHeader, EmptyState, Input, Spinner } from "../components/ui";
+import Icon from "../components/Icon";
 import { eventTypeLabel, formatDate, formatDateTime, CHART_COLORS } from "../lib/format";
 
 function todayIso() {
@@ -13,25 +13,19 @@ function todayIso() {
 /** Tür kırılımını yatay bar olarak gösterir. */
 function BreakdownBars({ breakdown }) {
   const entries = Object.entries(breakdown || {}).sort((a, b) => b[1] - a[1]);
-  if (entries.length === 0) return <p className="text-xs text-ink-faint">Veri yok</p>;
-  const max = Math.max(...entries.map(([, v]) => v));
+  if (entries.length === 0) return <p className="text-xs text-on-surface-variant">Veri yok</p>;
   return (
-    <div className="space-y-2.5">
+    <div className="flex-1 flex flex-col justify-center gap-3">
       {entries.map(([type, count], i) => (
-        <div key={type}>
-          <div className="flex items-center justify-between text-xs mb-1">
-            <span className="text-ink-soft">{eventTypeLabel(type)}</span>
-            <span className="font-semibold text-ink tabular-nums">{count}</span>
+        <div
+          key={type}
+          className="flex items-center justify-between p-3 rounded-lg bg-surface-container-high/50 border border-outline-variant/30"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
+            <span className="text-sm text-on-surface">{eventTypeLabel(type)}</span>
           </div>
-          <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all"
-              style={{
-                width: `${(count / max) * 100}%`,
-                background: CHART_COLORS[i % CHART_COLORS.length],
-              }}
-            />
-          </div>
+          <span className="font-semibold" style={{ color: CHART_COLORS[i % CHART_COLORS.length] }}>{count}</span>
         </div>
       ))}
     </div>
@@ -64,131 +58,136 @@ export default function ReportsPage() {
   const notFound = error && String(error.message).includes("özet yok");
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 animate-fade-up">
-      {/* ── Ana rapor alanı ──────────────────────────────────────────────── */}
-      <div className="xl:col-span-2 space-y-4">
-        <Card className="p-4">
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-[11px] font-medium text-ink-faint">Rapor Tarihi</label>
-              <Input
-                type="date"
-                value={date}
-                max={todayIso()}
-                onChange={(e) => setDate(e.target.value)}
-              />
-            </div>
-            <Button
-              onClick={() => generateMutation.mutate(Boolean(summary))}
-              disabled={generateMutation.isPending}
-            >
-              {generateMutation.isPending ? (
-                <Spinner className="w-4 h-4 text-white" />
-              ) : (
-                <RefreshCw className="w-4 h-4" />
-              )}
-              {summary ? "Yeniden Üret" : "Özet Üret"}
-            </Button>
-            {generateMutation.isError && (
-              <p className="text-xs text-rose-600 mb-2">
-                Üretim başarısız: {generateMutation.error.message}
-              </p>
-            )}
+    <div className="space-y-8 animate-fade-up">
+      {/* Action Bar */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+        <div>
+          <h2 className="text-3xl font-headline font-semibold text-primary mb-2">Güvenlik Raporları</h2>
+          <p className="text-on-surface-variant text-sm">Sistem olayları ve AI analiz özetleri.</p>
+        </div>
+        <div className="flex items-end gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-on-surface-variant ml-1">Rapor Tarihi</label>
+            <Input type="date" value={date} max={todayIso()} onChange={(e) => setDate(e.target.value)} />
           </div>
-        </Card>
+          <Button
+            variant="primary"
+            onClick={() => generateMutation.mutate(Boolean(summary))}
+            disabled={generateMutation.isPending}
+          >
+            {generateMutation.isPending ? <Spinner className="text-sm" /> : <Icon name={summary ? "refresh" : "auto_awesome"} className="text-sm" />}
+            {summary ? "Yeniden Üret" : "Özet Üret"}
+          </Button>
+        </div>
+      </div>
+      {generateMutation.isError && (
+        <p className="text-xs text-error -mt-4">Üretim başarısız: {generateMutation.error.message}</p>
+      )}
 
-        {isLoading ? (
-          <Card><div className="flex justify-center py-16"><Spinner /></div></Card>
-        ) : summary ? (
-          <Card>
-            <CardHeader
-              title={`Günlük Güvenlik Raporu — ${formatDate(summary.summary_date)}`}
-              subtitle={`Üretim: ${formatDateTime(summary.created_at)}`}
-              action={
+      {/* Bento Grid */}
+      <div className="grid grid-cols-12 gap-6">
+        {/* AI Summary Card */}
+        <div className="col-span-12 lg:col-span-8 glass-panel-elevated rounded-xl p-6 flex flex-col relative overflow-hidden">
+          <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
+          {isLoading ? (
+            <div className="flex justify-center py-16"><Spinner /></div>
+          ) : summary ? (
+            <>
+              <div className="flex items-center gap-3 mb-6 border-b border-primary/10 pb-4 flex-wrap">
+                <Icon name="summarize" className="text-primary text-2xl" />
+                <h3 className="text-xl font-semibold text-on-surface">
+                  Günlük Güvenlik Özeti — {formatDate(summary.summary_date)}
+                </h3>
                 <Badge
                   className={
                     summary.source === "gemma"
-                      ? "bg-violet-50 text-violet-700 ring-violet-200"
-                      : "bg-slate-100 text-slate-600 ring-slate-200"
+                      ? "bg-tertiary/20 text-tertiary border-tertiary/30 ml-auto"
+                      : "bg-surface-container-high text-on-surface-variant border-outline-variant/50 ml-auto"
                   }
                 >
-                  <Sparkles className="w-3 h-3" />
-                  {summary.source === "gemma" ? "Gemma AI" : "Şablon"}
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                  Oluşturulma: {formatDateTime(summary.created_at)} · Kaynak: {summary.source === "gemma" ? "Gemma" : "Şablon"}
                 </Badge>
-              }
-            />
-            <div className="px-5 pb-5 space-y-5">
-              {/* Özet metni */}
-              <div className="bg-accent-soft/60 border border-indigo-100 rounded-xl p-4">
-                <p className="text-sm text-ink leading-relaxed whitespace-pre-line">
-                  {summary.summary_text}
-                </p>
               </div>
-
-              {/* Sayısal kırılım */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="rounded-xl border border-line p-4">
-                  <p className="text-xs text-ink-faint">Toplam Olay</p>
-                  <p className="text-2xl font-bold text-ink tabular-nums mt-1">
-                    {summary.total_events}
-                  </p>
+              <div className="flex-1 text-on-surface-variant text-sm leading-relaxed space-y-4 whitespace-pre-line">
+                {summary.summary_text}
+              </div>
+              <div className="grid grid-cols-2 gap-4 mt-6 pt-4 border-t border-primary/10">
+                <div>
+                  <p className="text-xs text-on-surface-variant">Toplam Olay</p>
+                  <p className="text-2xl font-bold text-on-surface tabular-nums mt-1">{summary.total_events}</p>
                 </div>
-                <div className="rounded-xl border border-line p-4">
-                  <p className="text-xs text-ink-faint">Yüksek Riskli</p>
-                  <p className="text-2xl font-bold text-rose-600 tabular-nums mt-1">
-                    {summary.high_risk_events}
-                  </p>
+                <div>
+                  <p className="text-xs text-on-surface-variant">Yüksek Riskli</p>
+                  <p className="text-2xl font-bold text-error tabular-nums mt-1">{summary.high_risk_events}</p>
                 </div>
               </div>
-
-              <div>
-                <p className="text-xs font-semibold text-ink-soft mb-3">Olay Türü Kırılımı</p>
-                <BreakdownBars breakdown={summary.event_breakdown?.by_type} />
-              </div>
-            </div>
-          </Card>
-        ) : notFound ? (
-          <Card>
+            </>
+          ) : notFound ? (
             <EmptyState
-              icon={FileText}
+              icon="summarize"
               title="Bu tarih için özet henüz üretilmemiş"
               hint='"Özet Üret" butonuyla seçili günün raporunu oluşturabilirsiniz. Sistem her gece 23:55te otomatik üretir.'
             />
-          </Card>
-        ) : error ? (
-          <Card>
-            <EmptyState icon={FileText} title="Rapor yüklenemedi" hint={error.message} />
-          </Card>
-        ) : null}
-      </div>
+          ) : error ? (
+            <EmptyState icon="error" title="Rapor yüklenemedi" hint={error.message} />
+          ) : null}
+        </div>
 
-      {/* ── Geçmiş raporlar ──────────────────────────────────────────────── */}
-      <Card className="h-fit">
-        <CardHeader title="Geçmiş Raporlar" subtitle="Son 14 kayıt" />
-        <div className="px-2 pb-3">
-          {summaries.length === 0 ? (
-            <EmptyState icon={CalendarDays} title="Kayıtlı rapor yok" />
+        {/* Breakdown */}
+        <div className="col-span-12 lg:col-span-4 glass-panel rounded-xl p-6 flex flex-col">
+          <h3 className="text-lg font-semibold text-on-surface mb-6 flex items-center gap-2">
+            <Icon name="pie_chart" className="text-tertiary" />
+            Tür Kırılımı
+          </h3>
+          {summary ? (
+            <BreakdownBars breakdown={summary.event_breakdown?.by_type} />
           ) : (
-            summaries.map((s) => (
-              <button
-                key={s.summary_date}
-                onClick={() => setDate(s.summary_date)}
-                className={clsx(
-                  "w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl transition-colors text-left",
-                  s.summary_date === date ? "bg-accent-soft" : "hover:bg-slate-50"
-                )}
-              >
-                <div>
-                  <p className="text-sm font-medium text-ink">{formatDate(s.summary_date)}</p>
-                  <p className="text-[11px] text-ink-faint">
-                    {s.total_events} olay · {s.high_risk_events} yüksek riskli
-                  </p>
-                </div>
-                <FileText className="w-4 h-4 text-ink-faint shrink-0" />
-              </button>
-            ))
+            <EmptyState icon="pie_chart" title="Veri yok" hint="Önce bir özet üretin." />
           )}
         </div>
+      </div>
+
+      {/* Past Reports List */}
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold text-on-surface mb-4 flex items-center gap-2">
+          <Icon name="history" className="text-secondary" />
+          Geçmiş Raporlar
+        </h3>
+        {summaries.length === 0 ? (
+          <EmptyState icon="calendar_month" title="Kayıtlı rapor yok" />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-on-surface-variant">
+              <thead className="text-xs uppercase bg-surface-container/50 border-b border-primary/10">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Tarih</th>
+                  <th className="px-4 py-3 font-medium">Özet Bilgi</th>
+                  <th className="px-4 py-3 font-medium">Kaynak</th>
+                  <th className="px-4 py-3 font-medium text-right">İşlem</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-primary/5">
+                {summaries.map((s) => (
+                  <tr key={s.summary_date} className={clsx("hover:bg-surface-container-highest/30 transition-colors", s.summary_date === date && "bg-primary/5")}>
+                    <td className="px-4 py-3 font-medium text-on-surface">{formatDate(s.summary_date)}</td>
+                    <td className="px-4 py-3">{s.total_events} olay · {s.high_risk_events} yüksek riskli</td>
+                    <td className="px-4 py-3">
+                      <span className="px-2 py-1 rounded bg-tertiary/10 text-tertiary text-xs border border-tertiary/20">
+                        {s.source === "gemma" ? "Gemma" : "Şablon"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button onClick={() => setDate(s.summary_date)} className="text-primary hover:text-primary-fixed p-1">
+                        <Icon name="visibility" className="text-lg" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
     </div>
   );

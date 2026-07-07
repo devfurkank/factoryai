@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
-import { VideoOff } from "lucide-react";
+import Icon from "./Icon";
 
 /**
  * Canlı video oynatıcı — Faz 5 mantığı + Faz 6 gecikme iyileştirmesi.
@@ -58,8 +58,8 @@ export default function LiveVideo({ camera, isOnline, mode = "mjpeg" }) {
 
   if (!isOnline) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 text-slate-400">
-        <VideoOff className="w-6 h-6" />
+      <div className="flex flex-col items-center justify-center gap-2 text-on-surface-variant">
+        <Icon name="videocam_off" className="text-2xl" />
         <span className="text-xs">Kamera bağlı değil</span>
       </div>
     );

@@ -1,30 +1,30 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
-import { Cctv, MapPin, Activity, Zap, Film } from "lucide-react";
 import { api } from "../api/client";
-import { Card, Badge, EmptyState } from "../components/ui";
+import { Card, EmptyState } from "../components/ui";
+import Icon from "../components/Icon";
 import LiveVideo from "../components/LiveVideo";
 
 /** Görüntü kaynağı seçici — Anlık (MJPEG, <1 sn) / Akıcı (HLS, ~2-3 sn). */
 function ModeToggle({ mode, onChange }) {
   const options = [
-    { id: "mjpeg", label: "Anlık", icon: Zap, hint: "Tespit çizimli, en düşük gecikme (<1 sn)" },
-    { id: "hls", label: "Akıcı", icon: Film, hint: "Orijinal görüntü, HLS (~2-3 sn gecikme)" },
+    { id: "mjpeg", label: "Anlık", icon: "bolt", hint: "Tespit çizimli, en düşük gecikme (<1 sn)" },
+    { id: "hls", label: "Akıcı", icon: "movie", hint: "Orijinal görüntü, HLS (~2-3 sn gecikme)" },
   ];
   return (
-    <div className="flex rounded-lg bg-slate-900/70 backdrop-blur p-0.5">
-      {options.map(({ id, label, icon: Icon, hint }) => (
+    <div className="flex rounded-lg bg-background/70 backdrop-blur p-0.5 border border-primary/10">
+      {options.map(({ id, label, icon, hint }) => (
         <button
           key={id}
           onClick={() => onChange(id)}
           title={hint}
           className={clsx(
             "flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold transition-colors",
-            mode === id ? "bg-white text-slate-900" : "text-slate-300 hover:text-white"
+            mode === id ? "bg-primary/90 text-on-primary" : "text-on-surface-variant hover:text-on-surface"
           )}
         >
-          <Icon className="w-3 h-3" />
+          <Icon name={icon} className="text-[13px]" />
           {label}
         </button>
       ))}
@@ -40,46 +40,38 @@ function CameraCard({ camera, status }) {
   const isRtsp = camera.source_type === "rtsp";
 
   return (
-    <Card className="overflow-hidden group">
-      <div className="bg-slate-900 aspect-video flex items-center justify-center relative">
-        <LiveVideo camera={camera} isOnline={isOnline} mode={mode} />
-        {/* Durum rozeti */}
-        <div className="absolute top-3 left-3 flex items-center gap-2">
-          <span
-            className={clsx(
-              "flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-semibold backdrop-blur",
-              isOnline ? "bg-emerald-500/90 text-white" : "bg-slate-700/90 text-slate-200"
-            )}
-          >
-            <span className={clsx("w-1.5 h-1.5 rounded-full bg-white", isOnline && "animate-pulse")} />
-            {isOnline ? "CANLI" : "ÇEVRİMDIŞI"}
-          </span>
+    <Card className={clsx("overflow-hidden flex flex-col relative group", !isOnline && "border-error/20")}>
+      <div className="p-3 border-b border-primary/10 flex justify-between items-center bg-surface/40">
+        <div className="flex items-center gap-2">
+          <Icon name={isOnline ? "videocam" : "videocam_off"} className={clsx("text-[18px]", isOnline ? "text-on-surface-variant" : "text-error")} />
+          <div>
+            <h3 className="font-semibold text-sm text-on-surface">{camera.name}</h3>
+            <p className="text-[10px] text-on-surface-variant uppercase tracking-wider">
+              {camera.location || "Konum belirtilmemiş"}
+            </p>
+          </div>
         </div>
-        {/* Kaynak seçici — HLS yalnızca RTSP kameralarda mevcut */}
-        {isRtsp && isOnline && (
-          <div className="absolute top-3 right-3">
-            <ModeToggle mode={mode} onChange={setMode} />
+        <div className="flex items-center gap-3">
+          {isRtsp && isOnline && <ModeToggle mode={mode} onChange={setMode} />}
+          {isOnline ? (
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-green-500/20 text-green-400 border border-green-500/30">
+              CANLI
+            </span>
+          ) : (
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-surface-container-highest text-on-surface-variant border border-outline-variant">
+              ÇEVRİMDIŞI
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="relative aspect-video bg-black/80 w-full overflow-hidden flex items-center justify-center">
+        <LiveVideo camera={camera} isOnline={isOnline} mode={mode} />
+        {isOnline && status?.fps != null && (
+          <div className="absolute bottom-2 left-2 bg-black/50 backdrop-blur-sm text-on-surface text-[10px] px-2 py-1 rounded flex items-center gap-1 border border-white/10">
+            <Icon name="speed" className="text-[12px]" />
+            {status.fps.toFixed(1)} fps
           </div>
         )}
-      </div>
-      <div className="p-4 flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-ink truncate">{camera.name}</p>
-          <p className="text-xs text-ink-faint mt-0.5 flex items-center gap-1">
-            <MapPin className="w-3 h-3" />
-            {camera.location || "Konum belirtilmemiş"}
-          </p>
-        </div>
-        <Badge
-          className={
-            isOnline
-              ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
-              : "bg-slate-100 text-slate-500 ring-slate-200"
-          }
-        >
-          <Activity className="w-3 h-3" />
-          {isOnline ? `${status.fps.toFixed(1)} fps` : "—"}
-        </Badge>
       </div>
     </Card>
   );
@@ -100,12 +92,16 @@ export default function LivePage() {
   const onlineCount = (statuses || []).filter((s) => s.is_connected).length;
 
   return (
-    <div className="space-y-4 animate-fade-up">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-ink-soft">
-          <span className="font-semibold text-ink">{onlineCount}</span> / {cameras.length} kamera yayında
-        </p>
-        <p className="text-xs text-ink-faint">
+    <div className="space-y-8 animate-fade-up">
+      <div className="flex justify-between items-end">
+        <div>
+          <h2 className="text-3xl font-headline font-bold text-on-surface mb-2 tracking-tight">Fabrika Zemin İzleme</h2>
+          <p className="text-on-surface-variant text-sm">
+            Gerçek zamanlı AI analizli kamera akışları ·{" "}
+            <span className="font-semibold text-on-surface">{onlineCount}</span> / {cameras.length} kamera yayında
+          </p>
+        </div>
+        <p className="text-xs text-on-surface-variant hidden md:block">
           Anlık: tespit çizimli, &lt;1 sn gecikme · Akıcı: orijinal görüntü (HLS)
         </p>
       </div>
@@ -113,13 +109,13 @@ export default function LivePage() {
       {!isLoading && cameras.length === 0 ? (
         <Card>
           <EmptyState
-            icon={Cctv}
+            icon="videocam"
             title="Kayıtlı kamera yok"
             hint="Kameralar sayfasından yeni kamera ekleyebilirsiniz."
           />
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
           {cameras.map((cam) => (
             <CameraCard key={cam.id} camera={cam} status={statusMap[cam.id]} />
           ))}

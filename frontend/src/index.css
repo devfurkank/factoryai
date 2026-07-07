@@ -2,35 +2,90 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Faz 6 açık tema — 2026 yönetim paneli tasarım sistemi ─────────────────── */
+/* ── Glacier — glassmorphism koyu tema tasarım sistemi ─────────────────────── */
 
 body {
-  @apply bg-canvas text-ink font-sans antialiased;
+  @apply bg-background text-on-surface font-sans antialiased;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  background-image: radial-gradient(circle at 50% 0%, rgba(125, 211, 252, 0.05) 0%, transparent 70%);
 }
 
-/* İnce, açık temaya uygun kaydırma çubukları */
+.glass-panel {
+  background: rgba(15, 21, 36, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(125, 211, 252, 0.1);
+}
+
+.glass-panel-elevated,
+.glass-elevated {
+  background: rgba(15, 21, 36, 0.75);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(125, 211, 252, 0.15);
+  box-shadow: 0 0 30px rgba(125, 211, 252, 0.05);
+}
+
+.glass-input {
+  background: rgba(15, 21, 36, 0.4);
+  border: 1px solid rgba(125, 211, 252, 0.2);
+  color: #e0e8f0;
+}
+.glass-input:focus {
+  outline: none;
+  border-color: rgba(125, 211, 252, 0.6);
+  box-shadow: 0 0 15px rgba(125, 211, 252, 0.2);
+}
+
+.glow-hover:hover {
+  box-shadow: 0 0 30px rgba(125, 211, 252, 0.15);
+  border-color: rgba(125, 211, 252, 0.3);
+}
+
+/* Material Symbols Outlined ayarları */
+.material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  font-size: 1.25rem;
+  line-height: 1;
+  vertical-align: middle;
+}
+.material-symbols-outlined.fill {
+  font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24;
+}
+
+/* Koyu temaya uygun ince kaydırma çubukları */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 transparent;
+  scrollbar-color: rgba(125, 211, 252, 0.2) transparent;
 }
 *::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 *::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: rgba(125, 211, 252, 0.2);
   border-radius: 9999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(125, 211, 252, 0.4);
 }
 *::-webkit-scrollbar-track {
   background: transparent;
 }
 
-/* Recharts açık tema uyumu */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Recharts koyu tema uyumu */
 .recharts-cartesian-grid line {
-  stroke: #eef0f4;
+  stroke: rgba(74, 96, 112, 0.15);
 }
 .recharts-text {
-  fill: #94a3b8;
+  fill: #a0b4c4;
   font-size: 11px;
 }

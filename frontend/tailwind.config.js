@@ -1,30 +1,76 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ["./index.html", "./src/**/*.{js,jsx}"],
+  darkMode: "class",
   theme: {
     extend: {
       fontFamily: {
         sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],
+        headline: ["Inter", "sans-serif"],
+        display: ["Inter", "sans-serif"],
+        body: ["Inter", "sans-serif"],
+        label: ["Inter", "sans-serif"],
       },
       colors: {
-        // Açık tema tasarım token'ları (Faz 6 — 2026 yönetim paneli)
-        canvas: "#f6f7f9",   // uygulama zemini
-        surface: "#ffffff",  // kart/panel zemini
-        line: "#e7e9ee",     // ayraç/çerçeve
-        ink: {
-          DEFAULT: "#0f172a", // birincil metin
-          soft: "#475569",    // ikincil metin
-          faint: "#94a3b8",   // ipucu/etiket metni
-        },
-        accent: {
-          DEFAULT: "#4f46e5", // indigo-600
-          soft: "#eef2ff",    // indigo-50
-          strong: "#4338ca",  // indigo-700
-        },
+        // Glacier — glassmorphism koyu tema token'ları (stitch tasarımlarından)
+        "inverse-primary": "#0a4c6e",
+        "surface-dim": "#0f1524",
+        "on-primary-container": "#c8eaff",
+        "surface-container-high": "#1a2438",
+        "on-tertiary": "#1a002e",
+        "inverse-surface": "#e0e8f0",
+        "primary-fixed": "#c8eaff",
+        "primary-container": "#0e4d6e",
+        "on-primary": "#001f2e",
+        "tertiary-fixed": "#e8d0ff",
+        "secondary-container": "#1a3a4e",
+        outline: "#4a6070",
+        "on-secondary": "#001f2e",
+        tertiary: "#c8a0f0",
+        "surface-container-highest": "#202c42",
+        "on-background": "#e0e8f0",
+        secondary: "#88b4cc",
+        "surface-container-low": "#111828",
+        "surface-tint": "#7dd3fc",
+        "on-tertiary-container": "#e8d0ff",
+        "on-surface": "#e0e8f0",
+        "on-primary-fixed": "#001f2e",
+        surface: "#0f1524",
+        "surface-container-lowest": "#0a0e1a",
+        "on-secondary-fixed-variant": "#2a4a5e",
+        "on-surface-variant": "#a0b4c4",
+        background: "#0a0e1a",
+        "secondary-fixed-dim": "#88b4cc",
+        "on-secondary-container": "#c0d8e8",
+        "tertiary-fixed-dim": "#c8a0f0",
+        "on-tertiary-fixed": "#1a002e",
+        "outline-variant": "#2a3a48",
+        "secondary-fixed": "#c0d8e8",
+        "primary-fixed-dim": "#7dd3fc",
+        "surface-bright": "#1a2438",
+        "on-error-container": "#ffb3b3",
+        "surface-container": "#141c2e",
+        "tertiary-container": "#3d2060",
+        "surface-variant": "#1a2438",
+        primary: "#7dd3fc",
+        "on-tertiary-fixed-variant": "#4d2a73",
+        "on-secondary-fixed": "#0d1f2b",
+        error: "#ff6b6b",
+        "inverse-on-surface": "#0a0e1a",
+        "error-container": "#3d1414",
+        "on-primary-fixed-variant": "#004d73",
+        "on-error": "#1a0000",
+      },
+      borderRadius: {
+        DEFAULT: "0.5rem",
+        lg: "1rem",
+        xl: "1.5rem",
+        full: "9999px",
       },
       boxShadow: {
-        card: "0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 3px 0 rgb(15 23 42 / 0.06)",
-        pop: "0 10px 32px -8px rgb(15 23 42 / 0.16), 0 4px 12px -4px rgb(15 23 42 / 0.08)",
+        card: "0 1px 2px 0 rgb(0 0 0 / 0.2), 0 1px 3px 0 rgb(0 0 0 / 0.3)",
+        pop: "0 10px 32px -8px rgb(0 0 0 / 0.5), 0 4px 12px -4px rgb(0 0 0 / 0.3)",
+        glow: "0 0 30px rgba(125, 211, 252, 0.05)",
       },
       keyframes: {
         "slide-in": {
@@ -35,10 +81,15 @@ export default {
           from: { opacity: "0", transform: "translateY(8px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
+        "pulse-box": {
+          "0%, 100%": { borderColor: "rgba(125, 211, 252, 0.4)", boxShadow: "0 0 5px rgba(125, 211, 252, 0.2)" },
+          "50%": { borderColor: "rgba(125, 211, 252, 1)", boxShadow: "0 0 15px rgba(125, 211, 252, 0.6)" },
+        },
       },
       animation: {
         "slide-in": "slide-in 0.25s ease-out",
         "fade-up": "fade-up 0.3s ease-out",
+        "pulse-box": "pulse-box 2s infinite",
       },
     },
   },

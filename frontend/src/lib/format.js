@@ -17,22 +17,22 @@ export function eventTypeLabel(type) {
   return EVENT_TYPE_LABELS[type] || (type || "").replace(/_/g, " ");
 }
 
-/** Önem seviyesi görsel meta'sı — açık tema rozet/nokta renkleri. */
+/** Önem seviyesi görsel meta'sı — Glacier koyu tema rozet/nokta renkleri. */
 export const SEVERITY_META = {
-  CRITICAL: { label: "Kritik", badge: "bg-rose-50 text-rose-700 ring-rose-200", dot: "bg-rose-500" },
-  HIGH:     { label: "Yüksek", badge: "bg-orange-50 text-orange-700 ring-orange-200", dot: "bg-orange-500" },
-  MEDIUM:   { label: "Orta", badge: "bg-amber-50 text-amber-700 ring-amber-200", dot: "bg-amber-500" },
-  LOW:      { label: "Düşük", badge: "bg-slate-100 text-slate-600 ring-slate-200", dot: "bg-slate-400" },
+  CRITICAL: { label: "Kritik", badge: "bg-error/20 text-error border-error/30", dot: "bg-error" },
+  HIGH:     { label: "Yüksek", badge: "bg-tertiary/20 text-tertiary border-tertiary/30", dot: "bg-tertiary" },
+  MEDIUM:   { label: "Orta", badge: "bg-primary/20 text-primary border-primary/30", dot: "bg-primary" },
+  LOW:      { label: "Düşük", badge: "bg-surface-container text-on-surface-variant border-outline-variant/30", dot: "bg-outline" },
 };
 
 export const SEVERITIES = Object.keys(SEVERITY_META);
 
 export const STATUS_META = {
-  PENDING:   { label: "Beklemede", badge: "bg-slate-100 text-slate-600 ring-slate-200" },
-  ACTIVE:    { label: "Aktif", badge: "bg-rose-50 text-rose-700 ring-rose-200" },
-  SUSTAINED: { label: "Sürüyor", badge: "bg-orange-50 text-orange-700 ring-orange-200" },
-  RESOLVED:  { label: "Çözüldü", badge: "bg-emerald-50 text-emerald-700 ring-emerald-200" },
-  ESCALATED: { label: "Yükseltildi", badge: "bg-violet-50 text-violet-700 ring-violet-200" },
+  PENDING:   { label: "Beklemede", badge: "bg-secondary/10 text-secondary-fixed-dim border-secondary/20" },
+  ACTIVE:    { label: "Aktif", badge: "bg-secondary/20 text-secondary border-secondary/30" },
+  SUSTAINED: { label: "Sürüyor", badge: "bg-surface-container-high text-on-surface-variant border-outline-variant/50" },
+  RESOLVED:  { label: "Çözüldü", badge: "bg-primary-container text-primary-fixed border-primary/20" },
+  ESCALATED: { label: "Yükseltildi", badge: "bg-error/20 text-error border-error/30" },
 };
 
 export function formatDateTime(iso) {
@@ -65,8 +65,8 @@ export function timeAgo(iso) {
   return `${Math.floor(s / 86400)} gün önce`;
 }
 
-/** Grafiklerde kullanılan seri renkleri (açık tema paleti). */
+/** Grafiklerde kullanılan seri renkleri (Glacier koyu tema paleti). */
 export const CHART_COLORS = [
-  "#4f46e5", "#0ea5e9", "#f59e0b", "#f43f5e",
-  "#10b981", "#8b5cf6", "#64748b", "#ec4899",
+  "#7dd3fc", "#ff6b6b", "#c8a0f0", "#88b4cc",
+  "#ffb3b3", "#4a6070", "#c8eaff", "#3d2060",
 ];

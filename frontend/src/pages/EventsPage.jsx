@@ -1,12 +1,10 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
-import {
-  ChevronLeft, ChevronRight, Clapperboard, ShieldAlert, FilterX,
-} from "lucide-react";
 import { api } from "../api/client";
 import { useEvents } from "../hooks/useEvents";
 import { Badge, Button, Card, EmptyState, Select, Spinner, Input } from "../components/ui";
+import Icon from "../components/Icon";
 import EventDetailModal from "../components/events/EventDetailModal";
 import {
   EVENT_TYPES, eventTypeLabel, formatDateTime,
@@ -51,12 +49,25 @@ export default function EventsPage() {
   };
 
   return (
-    <div className="space-y-4 animate-fade-up">
-      {/* ── Filtre çubuğu ─────────────────────────────────────────────────── */}
+    <div className="flex flex-col gap-6 animate-fade-up">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+        <div>
+          <h2 className="text-2xl font-headline font-semibold text-on-surface mb-1">Olaylar</h2>
+          <p className="text-on-surface-variant text-sm">
+            Sistem tarafından tespit edilen tüm güvenlik ihlalleri ve uyarılar.
+          </p>
+        </div>
+        <p className="text-xs text-on-surface-variant">
+          <span className="font-semibold text-on-surface">{total}</span> olay
+        </p>
+      </div>
+
+      {/* Filtre çubuğu */}
       <Card className="p-4">
         <div className="flex flex-wrap items-end gap-3">
-          <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-medium text-ink-faint">Olay Türü</label>
+          <div className="flex flex-col gap-1 min-w-[150px] flex-1">
+            <label className="text-xs text-on-surface-variant ml-1">Olay Türü</label>
             <Select value={filters.event_type} onChange={setFilter("event_type")}>
               <option value="">Tümü</option>
               {EVENT_TYPES.map((t) => (
@@ -64,8 +75,8 @@ export default function EventsPage() {
               ))}
             </Select>
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-medium text-ink-faint">Önem</label>
+          <div className="flex flex-col gap-1 min-w-[120px] flex-1">
+            <label className="text-xs text-on-surface-variant ml-1">Önem</label>
             <Select value={filters.severity} onChange={setFilter("severity")}>
               <option value="">Tümü</option>
               {SEVERITIES.map((s) => (
@@ -73,8 +84,8 @@ export default function EventsPage() {
               ))}
             </Select>
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-medium text-ink-faint">Durum</label>
+          <div className="flex flex-col gap-1 min-w-[120px] flex-1">
+            <label className="text-xs text-on-surface-variant ml-1">Durum</label>
             <Select value={filters.status} onChange={setFilter("status")}>
               <option value="">Tümü</option>
               {Object.entries(STATUS_META).map(([k, v]) => (
@@ -82,144 +93,143 @@ export default function EventsPage() {
               ))}
             </Select>
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-medium text-ink-faint">Kamera</label>
+          <div className="flex flex-col gap-1 min-w-[150px] flex-1">
+            <label className="text-xs text-on-surface-variant ml-1">Kamera</label>
             <Select value={filters.camera_id} onChange={setFilter("camera_id")}>
-              <option value="">Tümü</option>
+              <option value="">Tüm Kameralar</option>
               {cameras.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </Select>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-medium text-ink-faint">Başlangıç</label>
+            <label className="text-xs text-on-surface-variant ml-1">Başlangıç</label>
             <Input type="date" value={filters.from_date} onChange={setFilter("from_date")} />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-medium text-ink-faint">Bitiş</label>
+            <label className="text-xs text-on-surface-variant ml-1">Bitiş</label>
             <Input type="date" value={filters.to_date} onChange={setFilter("to_date")} />
           </div>
           {hasFilter && (
             <Button
-              variant="ghost"
-              size="sm"
+              variant="secondary"
               onClick={() => { setFilters(EMPTY_FILTERS); setPage(0); }}
-              className="mb-0.5"
             >
-              <FilterX className="w-4 h-4" /> Temizle
+              <Icon name="filter_alt_off" className="text-sm" /> Filtreleri Temizle
             </Button>
           )}
-          <p className="ml-auto text-xs text-ink-faint mb-2">
-            <span className="font-semibold text-ink">{total}</span> olay
-          </p>
         </div>
       </Card>
 
-      {/* ── Olay tablosu ──────────────────────────────────────────────────── */}
-      <Card className="overflow-hidden">
-        {isLoading ? (
-          <div className="flex justify-center py-16"><Spinner /></div>
-        ) : isError ? (
-          <EmptyState icon={ShieldAlert} title="Olaylar yüklenemedi" hint="Backend bağlantısını kontrol edin." />
-        ) : events.length === 0 ? (
-          <EmptyState
-            icon={ShieldAlert}
-            title="Filtrelere uyan olay yok"
-            hint={hasFilter ? "Filtreleri temizleyip tekrar deneyin." : "Sistem olay ürettikçe burada listelenir."}
-          />
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-line bg-slate-50/60">
-                <th className="text-left font-medium text-ink-faint text-xs px-5 py-3">Olay</th>
-                <th className="text-left font-medium text-ink-faint text-xs px-4 py-3 hidden md:table-cell">Kamera</th>
-                <th className="text-left font-medium text-ink-faint text-xs px-4 py-3 hidden lg:table-cell">Zaman</th>
-                <th className="text-left font-medium text-ink-faint text-xs px-4 py-3">Risk</th>
-                <th className="text-left font-medium text-ink-faint text-xs px-4 py-3 hidden sm:table-cell">Durum</th>
-              </tr>
-            </thead>
-            <tbody>
-              {events.map((ev) => {
-                const sev = SEVERITY_META[ev.severity] || SEVERITY_META.LOW;
-                const st = STATUS_META[ev.status] || STATUS_META.ACTIVE;
-                return (
-                  <tr
-                    key={ev.id}
-                    onClick={() => setSelected(ev)}
-                    className="border-b border-line last:border-0 hover:bg-slate-50/80 cursor-pointer transition-colors"
-                  >
-                    <td className="px-5 py-3">
-                      <div className="flex items-center gap-3">
-                        {ev.thumbnail_path ? (
-                          <img
-                            src={api.events.thumbnailUrl(ev.id)}
-                            alt=""
-                            loading="lazy"
-                            className="w-16 h-10 object-cover rounded-lg border border-line shrink-0"
-                          />
-                        ) : (
-                          <div className="w-16 h-10 rounded-lg border border-line bg-slate-100 shrink-0" />
-                        )}
-                        <div className="min-w-0">
-                          <p className="font-medium text-ink truncate flex items-center gap-1.5">
-                            {eventTypeLabel(ev.event_type)}
-                            {ev.clip_path && (
-                              <Clapperboard className="w-3.5 h-3.5 text-accent shrink-0" />
-                            )}
-                          </p>
-                          {ev.zone_id && (
-                            <p className="text-[11px] text-ink-faint truncate">{ev.zone_id}</p>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-ink-soft hidden md:table-cell">{ev.camera_id}</td>
-                    <td className="px-4 py-3 text-ink-soft hidden lg:table-cell whitespace-nowrap">
-                      {formatDateTime(ev.started_at)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge className={sev.badge}>
-                        <span className={clsx("w-1.5 h-1.5 rounded-full", sev.dot)} />
-                        {ev.risk_score}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 hidden sm:table-cell">
-                      <Badge className={st.badge}>{st.label}</Badge>
-                    </td>
+      {/* Tablo + detay paneli */}
+      <div className="flex-1 flex gap-6 min-h-0">
+        <Card className="flex-1 flex flex-col overflow-hidden">
+          <div className="overflow-auto flex-1">
+            {isLoading ? (
+              <div className="flex justify-center py-16"><Spinner /></div>
+            ) : isError ? (
+              <EmptyState icon="report" title="Olaylar yüklenemedi" hint="Backend bağlantısını kontrol edin." />
+            ) : events.length === 0 ? (
+              <EmptyState
+                icon="notifications_active"
+                title="Filtrelere uyan olay yok"
+                hint={hasFilter ? "Filtreleri temizleyip tekrar deneyin." : "Sistem olay ürettikçe burada listelenir."}
+              />
+            ) : (
+              <table className="w-full text-left border-collapse">
+                <thead className="sticky top-0 bg-surface-container-high/90 backdrop-blur-md z-10">
+                  <tr>
+                    <th className="py-3 px-4 text-xs font-semibold text-on-surface-variant border-b border-outline-variant/30">Olay Türü</th>
+                    <th className="py-3 px-4 text-xs font-semibold text-on-surface-variant border-b border-outline-variant/30 hidden md:table-cell">Kamera</th>
+                    <th className="py-3 px-4 text-xs font-semibold text-on-surface-variant border-b border-outline-variant/30 hidden lg:table-cell">Tarih/Saat</th>
+                    <th className="py-3 px-4 text-xs font-semibold text-on-surface-variant border-b border-outline-variant/30">Risk Puanı</th>
+                    <th className="py-3 px-4 text-xs font-semibold text-on-surface-variant border-b border-outline-variant/30 hidden sm:table-cell">Durum</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-
-        {/* Sayfalama */}
-        {total > PAGE_SIZE && (
-          <div className="flex items-center justify-between px-5 py-3 border-t border-line">
-            <p className="text-xs text-ink-faint">
-              Sayfa <span className="font-medium text-ink">{page + 1}</span> / {pageCount}
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="secondary" size="sm"
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={page === 0}
-              >
-                <ChevronLeft className="w-4 h-4" /> Önceki
-              </Button>
-              <Button
-                variant="secondary" size="sm"
-                onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
-                disabled={page >= pageCount - 1}
-              >
-                Sonraki <ChevronRight className="w-4 h-4" />
-              </Button>
-            </div>
+                </thead>
+                <tbody className="text-sm divide-y divide-outline-variant/20">
+                  {events.map((ev) => {
+                    const sev = SEVERITY_META[ev.severity] || SEVERITY_META.LOW;
+                    const st = STATUS_META[ev.status] || STATUS_META.ACTIVE;
+                    const isSelected = selected?.id === ev.id;
+                    return (
+                      <tr
+                        key={ev.id}
+                        onClick={() => setSelected(ev)}
+                        className={clsx(
+                          "cursor-pointer transition-colors relative",
+                          isSelected ? "bg-primary/10 hover:bg-primary/15" : "hover:bg-surface-variant/50"
+                        )}
+                      >
+                        <td className="py-3 px-4 relative">
+                          {isSelected && <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary" />}
+                          <div className="flex items-center gap-3">
+                            {ev.thumbnail_path ? (
+                              <img
+                                src={api.events.thumbnailUrl(ev.id)}
+                                alt=""
+                                loading="lazy"
+                                className="w-10 h-10 object-cover rounded-full border border-outline-variant/30 shrink-0"
+                              />
+                            ) : (
+                              <div className={clsx("w-8 h-8 rounded-full flex items-center justify-center shrink-0", sev.badge)}>
+                                <Icon name="warning" className="text-sm" />
+                              </div>
+                            )}
+                            <span className="font-medium text-on-surface">{eventTypeLabel(ev.event_type)}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-on-surface-variant hidden md:table-cell">{ev.camera_id}</td>
+                        <td className="py-3 px-4 text-on-surface-variant text-xs hidden lg:table-cell whitespace-nowrap">
+                          {formatDateTime(ev.started_at)}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <span className={clsx("font-semibold", sev.dot.replace("bg-", "text-"))}>{ev.risk_score}</span>
+                            <div className="w-16 h-1.5 bg-surface-container rounded-full overflow-hidden hidden xl:block">
+                              <div className={clsx("h-full", sev.dot)} style={{ width: `${ev.risk_score}%` }} />
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 hidden sm:table-cell">
+                          <Badge className={st.badge}>{st.label}</Badge>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
-        )}
-      </Card>
 
-      {selected && <EventDetailModal event={selected} onClose={() => setSelected(null)} />}
+          {/* Sayfalama */}
+          {total > PAGE_SIZE && (
+            <div className="bg-surface-container-low/50 border-t border-outline-variant/30 p-3 flex items-center justify-between">
+              <span className="text-xs text-on-surface-variant">Toplam {total} olay</span>
+              <div className="flex items-center gap-4">
+                <span className="text-xs text-on-surface">Sayfa {page + 1} / {pageCount}</span>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    disabled={page === 0}
+                    className="w-8 h-8 rounded bg-surface border border-outline-variant/30 flex items-center justify-center text-on-surface-variant hover:text-primary hover:border-primary/50 transition-colors disabled:opacity-50"
+                  >
+                    <Icon name="chevron_left" className="text-sm" />
+                  </button>
+                  <button
+                    onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                    disabled={page >= pageCount - 1}
+                    className="w-8 h-8 rounded bg-surface border border-outline-variant/30 flex items-center justify-center text-on-surface-variant hover:text-primary hover:border-primary/50 transition-colors disabled:opacity-50"
+                  >
+                    <Icon name="chevron_right" className="text-sm" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </Card>
+
+        {selected && <EventDetailModal event={selected} onClose={() => setSelected(null)} />}
+      </div>
     </div>
   );
 }

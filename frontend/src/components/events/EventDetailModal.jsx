@@ -1,25 +1,23 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
-import {
-  CheckCircle2, ArrowUpCircle, Download, ImageOff, Clapperboard, Image as ImageIcon,
-} from "lucide-react";
 import { api } from "../../api/client";
-import { Badge, Button, Modal } from "../ui";
+import { Badge, Button } from "../ui";
+import Icon from "../Icon";
 import {
   eventTypeLabel, formatDateTime, SEVERITY_META, STATUS_META,
 } from "../../lib/format";
 
 function DetailRow({ label, value }) {
   return (
-    <div className="py-2 flex items-start justify-between gap-4 border-b border-line last:border-0">
-      <span className="text-xs text-ink-faint shrink-0">{label}</span>
-      <span className="text-xs font-medium text-ink text-right break-all">{value ?? "—"}</span>
+    <div>
+      <span className="block text-[10px] text-on-surface-variant uppercase tracking-wider mb-1">{label}</span>
+      <span className="text-sm text-on-surface break-all">{value ?? "—"}</span>
     </div>
   );
 }
 
-/** Olay detayı — klip/tespit fotoğrafı sekmeleri, metadata ve lifecycle aksiyonları. */
+/** Olay detayı — yan panel: klip/tespit fotoğrafı sekmeleri, metadata ve lifecycle aksiyonları. */
 export default function EventDetailModal({ event, onClose }) {
   const queryClient = useQueryClient();
   const [clipFailed, setClipFailed] = useState(false);
@@ -45,37 +43,49 @@ export default function EventDetailModal({ event, onClose }) {
   const activeMedia = hasClip ? (hasPhoto && mediaTab === "photo" ? "photo" : "clip") : "photo";
 
   return (
-    <Modal open onClose={onClose} title={eventTypeLabel(event.event_type)} wide>
-      <div className="space-y-4">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <Badge className={sev.badge}>Risk {event.risk_score} · {sev.label}</Badge>
-            <Badge className={st.badge}>{st.label}</Badge>
+    <div className="w-[360px] shrink-0 glass-panel-elevated rounded-xl flex flex-col overflow-hidden">
+      {/* Header */}
+      <div className="p-4 border-b border-primary/10 flex justify-between items-start bg-primary/5">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <Icon name="warning" className="text-error text-sm" />
+            <h3 className="text-lg font-semibold text-on-surface">{eventTypeLabel(event.event_type)}</h3>
           </div>
-          {/* Medya sekmeleri — hem klip hem tespit fotoğrafı varsa */}
-          {hasClip && hasPhoto && (
-            <div className="flex rounded-xl bg-slate-100 p-0.5">
-              {[
-                { id: "clip", label: "Video Klip", icon: Clapperboard },
-                { id: "photo", label: "Tespit Fotoğrafı", icon: ImageIcon },
-              ].map(({ id, label, icon: Icon }) => (
-                <button
-                  key={id}
-                  onClick={() => setMediaTab(id)}
-                  className={clsx(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-xs font-medium transition-colors",
-                    activeMedia === id
-                      ? "bg-surface text-ink shadow-card"
-                      : "text-ink-faint hover:text-ink"
-                  )}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
+          <span className="text-xs text-on-surface-variant break-all">ID: {event.id}</span>
         </div>
+        <button onClick={onClose} className="text-on-surface-variant hover:text-on-surface shrink-0">
+          <Icon name="close" className="text-sm" />
+        </button>
+      </div>
+
+      <div className="overflow-y-auto flex-1 p-4 flex flex-col gap-5">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Badge className={sev.badge}>Risk {event.risk_score} · {sev.label}</Badge>
+          <Badge className={st.badge}>{st.label}</Badge>
+        </div>
+
+        {/* Medya sekmeleri */}
+        {hasClip && hasPhoto && (
+          <div className="flex bg-surface-container-highest rounded-lg p-1">
+            {[
+              { id: "clip", label: "Video Klip" },
+              { id: "photo", label: "Tespit Fotoğrafı" },
+            ].map(({ id, label }) => (
+              <button
+                key={id}
+                onClick={() => setMediaTab(id)}
+                className={clsx(
+                  "flex-1 py-1.5 text-xs font-medium rounded transition-colors",
+                  activeMedia === id
+                    ? "bg-primary/20 text-primary border border-primary/20 shadow-sm"
+                    : "text-on-surface-variant hover:text-on-surface"
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Video klip / tespit fotoğrafı / boş durum */}
         {activeMedia === "clip" && hasClip ? (
@@ -84,86 +94,83 @@ export default function EventDetailModal({ event, onClose }) {
             controls
             autoPlay
             muted
-            className="w-full rounded-xl border border-line bg-slate-900"
+            className="w-full rounded-lg border border-outline-variant/30 bg-black"
             onError={() => setClipFailed(true)}
           />
         ) : hasPhoto ? (
           <img
             src={api.events.thumbnailUrl(event.id)}
             alt="tespit fotoğrafı"
-            className="w-full rounded-xl border border-line"
+            className="w-full rounded-lg border border-outline-variant/30"
           />
         ) : (
-          <div className="flex flex-col items-center justify-center py-10 bg-slate-50 rounded-xl border border-line text-ink-faint">
-            <ImageOff className="w-6 h-6 mb-2" />
+          <div className="flex flex-col items-center justify-center py-10 bg-surface-container-low rounded-lg border border-outline-variant/30 text-on-surface-variant">
+            <Icon name="image_not_supported" className="text-2xl mb-2" />
             <p className="text-xs">Bu olay için görüntü yok</p>
           </div>
         )}
         {event.clip_path && clipFailed && (
-          <p className="text-xs text-amber-600">
+          <p className="text-xs text-tertiary">
             Klip tarayıcıda oynatılamadı —{" "}
             <a
               href={api.events.clipUrl(event.id)}
               download
-              className="text-accent font-medium hover:underline inline-flex items-center gap-1"
+              className="text-primary font-medium hover:underline inline-flex items-center gap-1"
             >
-              <Download className="w-3 h-3" /> indirmek için tıklayın
+              <Icon name="download" className="text-xs" /> indirmek için tıklayın
             </a>
           </p>
         )}
 
         {/* Detay alanları */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8">
-          <div>
-            <DetailRow label="Kamera" value={event.camera_id} />
-            <DetailRow label="Başlangıç" value={formatDateTime(event.started_at)} />
-            <DetailRow label="Bitiş" value={formatDateTime(event.ended_at)} />
-          </div>
-          <div>
-            <DetailRow label="Bölge" value={event.zone_id} />
-            <DetailRow label="Track ID" value={event.track_ids?.join(", ") || "—"} />
-            <DetailRow label="Sınıflar" value={event.detected_classes?.join(", ") || "—"} />
-          </div>
+        <div className="grid grid-cols-2 gap-4 bg-surface/40 p-3 rounded-lg border border-outline-variant/20">
+          <DetailRow label="Kamera" value={event.camera_id} />
+          <DetailRow label="Bölge" value={event.zone_id} />
+          <DetailRow label="Başlangıç" value={formatDateTime(event.started_at)} />
+          <DetailRow label="Bitiş" value={event.ended_at ? formatDateTime(event.ended_at) : "Devam Ediyor"} />
+          <DetailRow label="Takip ID" value={event.track_ids?.join(", ")} />
+          <DetailRow label="Sınıflar" value={event.detected_classes?.join(", ")} />
         </div>
 
         {event.metadata && Object.keys(event.metadata).length > 0 && (
           <details className="group">
-            <summary className="text-xs font-medium text-ink-soft cursor-pointer hover:text-ink">
+            <summary className="text-xs font-medium text-on-surface-variant cursor-pointer hover:text-on-surface">
               Teknik metadata
             </summary>
-            <pre className="mt-2 bg-slate-50 border border-line rounded-xl p-3 text-[11px] text-ink-soft overflow-x-auto">
+            <pre className="mt-2 bg-surface-container-low border border-outline-variant/30 rounded-lg p-3 text-[11px] text-on-surface-variant overflow-x-auto">
               {JSON.stringify(event.metadata, null, 2)}
             </pre>
           </details>
         )}
+      </div>
 
-        {/* Lifecycle aksiyonları */}
-        {!isTerminal && (
-          <div className="flex items-center gap-2 pt-2 border-t border-line">
+      {/* Aksiyonlar */}
+      {!isTerminal && (
+        <div className="p-4 border-t border-outline-variant/30 flex gap-3 bg-surface-container-lowest">
+          <Button
+            size="sm"
+            className="flex-1 !bg-emerald-500/20 !text-emerald-400 !border-emerald-500/30 hover:!bg-emerald-500/30"
+            onClick={() => statusMutation.mutate({ id: event.id, status: "RESOLVED" })}
+            disabled={statusMutation.isPending}
+          >
+            <Icon name="check_circle" className="text-sm" /> Çözüldü İşaretle
+          </Button>
+          {event.status !== "ESCALATED" && (
             <Button
               size="sm"
-              onClick={() => statusMutation.mutate({ id: event.id, status: "RESOLVED" })}
+              variant="danger"
+              className="flex-1"
+              onClick={() => statusMutation.mutate({ id: event.id, status: "ESCALATED" })}
               disabled={statusMutation.isPending}
-              className="!bg-emerald-600 hover:!bg-emerald-700"
             >
-              <CheckCircle2 className="w-4 h-4" /> Çözüldü İşaretle
+              <Icon name="priority_high" className="text-sm" /> Yükselt
             </Button>
-            {event.status !== "ESCALATED" && (
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => statusMutation.mutate({ id: event.id, status: "ESCALATED" })}
-                disabled={statusMutation.isPending}
-              >
-                <ArrowUpCircle className="w-4 h-4" /> Yükselt
-              </Button>
-            )}
-            {statusMutation.isError && (
-              <span className="text-xs text-rose-600">Güncelleme başarısız</span>
-            )}
-          </div>
-        )}
-      </div>
-    </Modal>
+          )}
+        </div>
+      )}
+      {statusMutation.isError && (
+        <p className="text-xs text-error px-4 pb-3 bg-surface-container-lowest">Güncelleme başarısız</p>
+      )}
+    </div>
   );
 }
