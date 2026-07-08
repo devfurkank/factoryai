@@ -6,6 +6,7 @@ from app.rules.direction import DirectionRuleEvaluator
 from app.rules.distance import DistanceRuleEvaluator
 from app.rules.dwell import DwellRuleEvaluator
 from app.rules.engine import RuleEngine
+from app.rules.geometry import is_normalized, scale_points
 from app.rules.types import ZoneData
 from app.rules.zone import ZoneRuleEvaluator
 from app.tracking.types import TrackedObject, TrackState
@@ -323,3 +324,102 @@ class TestStatePruning:
         ev.evaluate("cam_01", [_obj(99, 50, 50)], [])
         assert all(k[2] == 99 or k not in ev._entry_ts for k in list(ev._entry_ts))
         assert not any(k[2] in (1, 2, 3, 4) for k in ev._entry_ts)
+
+
+# ── Normalize (0-1) koordinat desteği — web paneli çizim aracı ────────────────
+class TestGeometryHelpers:
+    def test_is_normalized_true_for_unit_range(self):
+        assert is_normalized([[0.1, 0.2], [0.9, 0.4], [0.5, 1.0]])
+
+    def test_is_normalized_false_for_pixels(self):
+        assert not is_normalized([[0, 0], [100, 0], [100, 100]])
+
+    def test_is_normalized_false_for_empty_or_malformed(self):
+        assert not is_normalized([])
+        assert not is_normalized([[0.5], [0.2, 0.3]])
+        assert not is_normalized([["a", "b"]])
+
+    def test_scale_points_scales_normalized_to_frame(self):
+        # frame_size = (height, width) — numpy shape[:2] sırası
+        pts = scale_points([[0.5, 0.25], [1.0, 1.0]], (480, 640))
+        assert pts == [[320.0, 120.0], [640.0, 480.0]]
+
+    def test_scale_points_leaves_pixels_untouched(self):
+        pts = scale_points([[10, 20], [300, 400], [50, 60]], (480, 640))
+        assert pts == [[10, 20], [300, 400], [50, 60]]
+
+    def test_scale_points_without_frame_size_returns_as_is(self):
+        pts = scale_points([[0.5, 0.5], [0.9, 0.1], [0.2, 0.8]], None)
+        assert pts == [[0.5, 0.5], [0.9, 0.1], [0.2, 0.8]]
+
+
+class TestNormalizedZoneRule:
+    # 640x480 frame'de x:64-320 / y:48-240 piksel bölgesine denk gelir
+    def _normalized_zone(self):
+        return ZoneData(
+            id="zn1", camera_id="cam_01", name="Normalize Bölge",
+            zone_type="forbidden",
+            polygon=[[0.1, 0.1], [0.5, 0.1], [0.5, 0.5], [0.1, 0.5]],
+            risk_level="high", allowed_classes=[], rules={},
+        )
+
+    def test_entry_inside_normalized_zone_triggers(self):
+        evaluator = ZoneRuleEvaluator()
+        obj = _obj(1, 150, 100)  # ayak noktası (150, 110) → bölge içinde
+        violations = evaluator.evaluate(
+            "cam_01", [obj], [self._normalized_zone()], frame_size=(480, 640)
+        )
+        assert len(violations) == 1
+        assert violations[0].event_type == EventType.FORBIDDEN_ZONE_ENTRY
+        assert violations[0].zone_id == "zn1"
+
+    def test_outside_normalized_zone_does_not_trigger(self):
+        evaluator = ZoneRuleEvaluator()
+        obj = _obj(1, 500, 400)  # ayak noktası (500, 410) → bölge dışında
+        violations = evaluator.evaluate(
+            "cam_01", [obj], [self._normalized_zone()], frame_size=(480, 640)
+        )
+        assert violations == []
+
+    def test_normalized_zone_without_frame_size_is_inert(self):
+        # frame_size bilinmiyorsa 1x1'lik poligon hiçbir piksel bbox'ını içeremez
+        evaluator = ZoneRuleEvaluator()
+        obj = _obj(1, 150, 100)
+        violations = evaluator.evaluate("cam_01", [obj], [self._normalized_zone()])
+        assert violations == []
+
+    def test_pixel_zone_behavior_unchanged_with_frame_size(self):
+        evaluator = ZoneRuleEvaluator()
+        zone = ZoneData(
+            id="zp1", camera_id="cam_01", name="Piksel Bölge", zone_type="forbidden",
+            polygon=[[0, 0], [100, 0], [100, 100], [0, 100]], risk_level="high",
+            allowed_classes=[], rules={},
+        )
+        obj = _obj(1, 50, 50)
+        violations = evaluator.evaluate("cam_01", [obj], [zone], frame_size=(480, 640))
+        assert len(violations) == 1
+
+    def test_rule_engine_passes_frame_size_through(self):
+        engine = RuleEngine()
+        engine.set_zones({"cam_01": [self._normalized_zone()]})
+        obj = _obj(1, 150, 100)
+        violations = engine.evaluate("cam_01", [obj], frame_size=(480, 640))
+        assert len(violations) == 1
+        assert violations[0].event_type == EventType.FORBIDDEN_ZONE_ENTRY
+
+    def test_dwell_with_normalized_polygon(self, monkeypatch):
+        evaluator = DwellRuleEvaluator()
+        zone = ZoneData(
+            id="zn2", camera_id="cam_01", name="Normalize Bekleme", zone_type="dwell",
+            polygon=[[0.1, 0.1], [0.5, 0.1], [0.5, 0.5], [0.1, 0.5]],
+            risk_level="medium", allowed_classes=[],
+            rules={"max_dwell_seconds": 10.0},
+        )
+        obj = _obj(1, 150, 100)
+        t0 = 1000.0
+        monkeypatch.setattr(time, "time", lambda: t0)
+        assert evaluator.evaluate("cam_01", [obj], [zone], frame_size=(480, 640)) == []
+        monkeypatch.setattr(time, "time", lambda: t0 + 11.0)
+        violations = evaluator.evaluate("cam_01", [obj], [zone], frame_size=(480, 640))
+        assert len(violations) == 1
+        assert violations[0].event_type == EventType.INACTIVITY

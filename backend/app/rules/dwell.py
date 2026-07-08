@@ -11,12 +11,13 @@ dwell kuralı bölgedeki HERKESE uygulanır) bir kez INACTIVITY olayı üretir.
 from __future__ import annotations
 
 import time
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import shapely.geometry as geo
 import structlog
 
 from app.events.schemas import EventType
+from app.rules.geometry import FrameSize, scale_points
 from app.rules.types import RuleViolation, ZoneData
 from app.tracking.types import TrackedObject, TrackState
 
@@ -40,6 +41,7 @@ class DwellRuleEvaluator:
         camera_id: str,
         tracked_objects: List[TrackedObject],
         zones: List[ZoneData],
+        frame_size: Optional[FrameSize] = None,
     ) -> List[RuleViolation]:
         violations: List[RuleViolation] = []
         now = time.time()
@@ -51,7 +53,7 @@ class DwellRuleEvaluator:
 
         for zone in dwell_zones:
             try:
-                polygon = geo.Polygon(zone.polygon)
+                polygon = geo.Polygon(scale_points(zone.polygon, frame_size))
                 if not polygon.is_valid or polygon.is_empty:
                     continue
             except Exception:

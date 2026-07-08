@@ -13,6 +13,7 @@ async function request(path, options = {}) {
     } catch { /* gövde JSON değilse yoksay */ }
     throw new Error(detail || `API ${res.status}: ${path}`);
   }
+  if (res.status === 204) return null; // No Content (örn. zone silme)
   return res.json();
 }
 
@@ -65,5 +66,19 @@ export const api = {
   },
   streams: {
     list: () => request("/api/streams"),
+  },
+  // Alan İhlali — poligon bölge (zone) CRUD'u
+  zones: {
+    list: (cameraId, includeInactive = false) => {
+      const q = new URLSearchParams();
+      if (cameraId) q.set("camera_id", cameraId);
+      if (includeInactive) q.set("include_inactive", "true");
+      const qs = q.toString();
+      return request(`/api/zones${qs ? "?" + qs : ""}`);
+    },
+    create: (body) => request("/api/zones", { method: "POST", body: JSON.stringify(body) }),
+    update: (id, body) =>
+      request(`/api/zones/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(body) }),
+    remove: (id) => request(`/api/zones/${encodeURIComponent(id)}`, { method: "DELETE" }),
   },
 };

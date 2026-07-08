@@ -88,15 +88,23 @@ def zone_row_to_data(row: Zone) -> ZoneData:
     )
 
 
-async def list_zones(db: AsyncSession) -> list[Zone]:
-    result = await db.execute(select(Zone).where(Zone.is_active == True).order_by(Zone.created_at))
+async def list_zones(db: AsyncSession, include_inactive: bool = False) -> list[Zone]:
+    stmt = select(Zone).order_by(Zone.created_at)
+    if not include_inactive:
+        stmt = stmt.where(Zone.is_active == True)
+    result = await db.execute(stmt)
     return list(result.scalars().all())
 
 
-async def list_zones_for_camera(db: AsyncSession, camera_id: str) -> list[Zone]:
-    result = await db.execute(
-        select(Zone).where(Zone.camera_id == camera_id, Zone.is_active == True)
-    )
+async def list_zones_for_camera(
+    db: AsyncSession, camera_id: str, include_inactive: bool = False
+) -> list[Zone]:
+    # include_inactive=True: yönetim UI'ı pasif bölgeleri de listeler (yeniden
+    # aktifleştirilebilsin); kural motoru önbelleği ise yalnızca aktifleri alır
+    stmt = select(Zone).where(Zone.camera_id == camera_id).order_by(Zone.created_at)
+    if not include_inactive:
+        stmt = stmt.where(Zone.is_active == True)
+    result = await db.execute(stmt)
     return list(result.scalars().all())
 
 

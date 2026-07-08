@@ -6,6 +6,7 @@ const NAV = [
   { to: "/", label: "Dashboard", icon: "dashboard", end: true },
   { to: "/live", label: "Canlı İzleme", icon: "live_tv" },
   { to: "/events", label: "Olaylar", icon: "notifications_active" },
+  { to: "/zones", label: "Alan İhlali", icon: "polyline" },
   { to: "/reports", label: "Raporlar", icon: "assessment" },
   { to: "/assistant", label: "AI Asistan", icon: "smart_toy" },
   { to: "/cameras", label: "Kameralar", icon: "videocam" },

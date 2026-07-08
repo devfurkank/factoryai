@@ -7,12 +7,13 @@ alarm üretmez — sürekli spam yerine "entry edge" mantığı kullanılır.
 """
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import shapely.geometry as geo
 import structlog
 
 from app.events.schemas import EventType
+from app.rules.geometry import FrameSize, scale_points
 from app.rules.types import RuleViolation, ZoneData
 from app.tracking.types import TrackedObject, TrackState
 
@@ -34,12 +35,13 @@ class ZoneRuleEvaluator:
         camera_id: str,
         tracked_objects: List[TrackedObject],
         zones: List[ZoneData],
+        frame_size: Optional[FrameSize] = None,
     ) -> List[RuleViolation]:
         violations: List[RuleViolation] = []
         cam_zones = [z for z in zones if z.camera_id == camera_id and z.is_active]
 
         for zone in cam_zones:
-            polygon = self._build_polygon(zone)
+            polygon = self._build_polygon(zone, frame_size)
             if polygon is None:
                 continue
 
@@ -90,9 +92,11 @@ class ZoneRuleEvaluator:
             del self._inside_state[k]
 
     @staticmethod
-    def _build_polygon(zone: ZoneData):
+    def _build_polygon(zone: ZoneData, frame_size: Optional[FrameSize] = None):
         try:
-            polygon = geo.Polygon(zone.polygon)
+            # Normalize (0-1) kaydedilen poligonlar frame boyutuna ölçeklenir;
+            # piksel poligonlar aynen kullanılır (bkz. rules/geometry.py)
+            polygon = geo.Polygon(scale_points(zone.polygon, frame_size))
         except Exception:
             log.warning("rules.zone.invalid_polygon", zone_id=zone.id)
             return None

@@ -14,6 +14,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from app.detection.engine import detection_engine, annotate_frame
 from app.detection.types import BBox
 from app.rules.engine import rule_engine
+from app.rules.geometry import scale_points
 from app.rules.types import ZoneData
 
 router = APIRouter(prefix="/api/detection", tags=["detection"])
@@ -37,16 +38,25 @@ def _bbox_to_dict(b: BBox) -> dict:
 def _draw_zones(frame: np.ndarray, zones: List[ZoneData]) -> np.ndarray:
     """Poligon bölgelerini (risk seviyesine göre renkli) frame üzerine çizer —
     canlı yayında Rule Engine'in hangi bölgeleri izlediğini görsel olarak
-    doğrulamak için."""
+    doğrulamak için. Normalize (0-1) poligonlar frame boyutuna ölçeklenir."""
+    frame_size = frame.shape[:2]
+    overlay = None
     for zone in zones:
         if not zone.polygon or len(zone.polygon) < 3:
             continue
-        pts = np.array(zone.polygon, dtype=np.int32).reshape((-1, 1, 2))
+        polygon_px = scale_points(zone.polygon, frame_size)
+        pts = np.array(polygon_px, dtype=np.int32).reshape((-1, 1, 2))
         color = _RISK_COLORS.get(zone.risk_level, (255, 255, 0))
+        if overlay is None:
+            overlay = frame.copy()
+        cv2.fillPoly(overlay, [pts], color)
         cv2.polylines(frame, [pts], isClosed=True, color=color, thickness=2)
-        x, y = zone.polygon[0]
+        x, y = polygon_px[0]
         cv2.putText(frame, zone.name, (int(x), max(int(y) - 8, 15)),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+    if overlay is not None:
+        # Yarı saydam dolgu — bölge sınırı tek çizgiden daha okunur olur
+        cv2.addWeighted(overlay, 0.18, frame, 0.82, 0, dst=frame)
     return frame
 
 

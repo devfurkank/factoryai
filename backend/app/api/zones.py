@@ -38,11 +38,15 @@ async def _refresh_rule_engine_cache(db: AsyncSession):
 
 
 @router.get("", response_model=List[ZoneResponse])
-async def list_zones(camera_id: Optional[str] = None, db: AsyncSession = Depends(get_db)):
+async def list_zones(
+    camera_id: Optional[str] = None,
+    include_inactive: bool = False,
+    db: AsyncSession = Depends(get_db),
+):
     rows = (
-        await crud.list_zones_for_camera(db, camera_id)
+        await crud.list_zones_for_camera(db, camera_id, include_inactive)
         if camera_id
-        else await crud.list_zones(db)
+        else await crud.list_zones(db, include_inactive)
     )
     return [_row_to_response(r) for r in rows]
 

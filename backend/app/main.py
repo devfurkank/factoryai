@@ -63,8 +63,13 @@ async def _detection_result_consumer():
                 )
 
             # Faz 3: genel tespitleri (person/vehicle) takip et, sonra kural motoruna gönder
+            # frame_size: normalize (0-1) zone poligonlarının piksele ölçeklenmesi için
             tracked_objects = tracking_engine.update(result.camera_id, result.general)
-            violations = rule_engine.evaluate(result.camera_id, tracked_objects)
+            violations = rule_engine.evaluate(
+                result.camera_id,
+                tracked_objects,
+                frame_size=result.frame.shape[:2] if result.frame is not None else None,
+            )
 
             # Faz 4: kural ihlalleri + tespit-bazlı alarmlar (yangın/düşme/KKD)
             # → risk puanlama + dedup + thumbnail + DB olay kaydı

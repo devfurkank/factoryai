@@ -13,11 +13,12 @@ ile uyuşmuyorsa DIRECTION_VIOLATION üretilir.
 """
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import structlog
 
 from app.events.schemas import EventType
+from app.rules.geometry import FrameSize, scale_points
 from app.rules.types import RuleViolation, ZoneData
 from app.tracking.types import TrackedObject, TrackState
 
@@ -44,6 +45,7 @@ class DirectionRuleEvaluator:
         camera_id: str,
         tracked_objects: List[TrackedObject],
         zones: List[ZoneData],
+        frame_size: Optional[FrameSize] = None,
     ) -> List[RuleViolation]:
         violations: List[RuleViolation] = []
 
@@ -58,7 +60,7 @@ class DirectionRuleEvaluator:
             if allowed_direction == "any" or not line or len(line) != 2:
                 continue
 
-            (lx1, ly1), (lx2, ly2) = line
+            (lx1, ly1), (lx2, ly2) = scale_points(line, frame_size)
 
             for obj in tracked_objects:
                 if obj.state != TrackState.CONFIRMED:

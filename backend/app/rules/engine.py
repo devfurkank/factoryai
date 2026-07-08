@@ -10,6 +10,7 @@ from app.config import settings
 from app.rules.distance import DistanceRuleEvaluator
 from app.rules.direction import DirectionRuleEvaluator
 from app.rules.dwell import DwellRuleEvaluator
+from app.rules.geometry import FrameSize
 from app.rules.types import RuleViolation, ZoneData
 from app.rules.zone import ZoneRuleEvaluator
 from app.tracking.types import TrackedObject
@@ -39,16 +40,19 @@ class RuleEngine:
         camera_id: str,
         tracked_objects: List[TrackedObject],
         zones: Optional[List[ZoneData]] = None,
+        frame_size: Optional[FrameSize] = None,
     ) -> List[RuleViolation]:
+        """frame_size: (height, width) — normalize (0-1) kaydedilmiş zone
+        poligonlarını piksele ölçeklemek için (bkz. rules/geometry.py)."""
         cam_zones = zones if zones is not None else self._zones_by_camera.get(camera_id, [])
 
         violations: List[RuleViolation] = []
-        violations += self._zone_eval.evaluate(camera_id, tracked_objects, cam_zones)
-        violations += self._dwell_eval.evaluate(camera_id, tracked_objects, cam_zones)
+        violations += self._zone_eval.evaluate(camera_id, tracked_objects, cam_zones, frame_size)
+        violations += self._dwell_eval.evaluate(camera_id, tracked_objects, cam_zones, frame_size)
         violations += self._distance_eval.evaluate(
             camera_id, tracked_objects, settings.distance_alert_pixels
         )
-        violations += self._direction_eval.evaluate(camera_id, tracked_objects, cam_zones)
+        violations += self._direction_eval.evaluate(camera_id, tracked_objects, cam_zones, frame_size)
 
         if violations:
             buf = self._recent.setdefault(camera_id, deque(maxlen=50))
